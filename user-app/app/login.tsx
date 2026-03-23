@@ -1,0 +1,188 @@
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image } from 'react-native';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../src/lib/axios';
+
+const GREEN = '#4CAF50';
+const GREEN_DARK = '#2E7D32';
+const GREEN_LIGHT = '#E8F5E9';
+
+export default function LoginScreen() {
+    const router = useRouter();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter email and password');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await apiClient.post('/api/user/login', { email, password });
+            if (res.data.token) {
+                await AsyncStorage.setItem('userToken', res.data.token);
+                await AsyncStorage.setItem('userEmail', email);
+                router.replace('/(main)');
+            }
+        } catch (error: any) {
+            const msg = error.response?.data?.error || 'Login failed';
+            Alert.alert('Login Failed', msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+            <View style={styles.card}>
+                <View style={styles.headerContainer}>
+                    <Text style={styles.logoText}>Itursh</Text>
+                    <Text style={styles.subtitle}>Welcome back</Text>
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Email</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="you@example.com"
+                        placeholderTextColor="#A5D6A7"
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        value={email}
+                        onChangeText={setEmail}
+                    />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Password</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="••••••••"
+                        placeholderTextColor="#A5D6A7"
+                        secureTextEntry
+                        value={password}
+                        onChangeText={setPassword}
+                    />
+                </View>
+
+                <TouchableOpacity
+                    style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
+                    onPress={handleLogin}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="#FFF" />
+                    ) : (
+                        <Text style={styles.loginBtnText}>Login</Text>
+                    )}
+                </TouchableOpacity>
+
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>Don't have an account? </Text>
+                    <TouchableOpacity onPress={() => router.push('/signup')}>
+                        <Text style={styles.linkText}>Sign Up</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#F9FBF9', // very light green tinted white
+        justifyContent: 'center',
+        padding: 24,
+    },
+    card: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 24,
+        paddingVertical: 32,
+        shadowColor: GREEN_DARK,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+        elevation: 8,
+    },
+    headerContainer: {
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    logoText: {
+        fontSize: 36,
+        fontWeight: '800',
+        color: GREEN,
+        letterSpacing: -0.5,
+        marginBottom: 8,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#666',
+        fontWeight: '500',
+    },
+    inputGroup: {
+        marginBottom: 20,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 8,
+        marginLeft: 4,
+    },
+    input: {
+        backgroundColor: GREEN_LIGHT,
+        borderWidth: 1,
+        borderColor: '#C8E6C9',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 16,
+        color: '#333',
+    },
+    loginBtn: {
+        backgroundColor: GREEN,
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+        marginTop: 12,
+        shadowColor: GREEN,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    loginBtnDisabled: {
+        opacity: 0.7,
+    },
+    loginBtnText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    footer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 24,
+    },
+    footerText: {
+        color: '#666',
+        fontSize: 14,
+    },
+    linkText: {
+        color: GREEN,
+        fontSize: 14,
+        fontWeight: '700',
+    },
+});
