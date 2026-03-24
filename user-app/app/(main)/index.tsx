@@ -92,7 +92,6 @@ export default function HomeScreen() {
             setStatusBarBackgroundColor('#E8F5E9', true);
             // Android navigation bar
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#F1F5F1');
                 NavigationBar.setButtonStyleAsync('dark');
             }
         }, [])

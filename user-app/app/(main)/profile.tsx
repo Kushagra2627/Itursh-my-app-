@@ -34,7 +34,6 @@ export default function ProfileScreen() {
 
             // Android navigation bar
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#F1F5F1');
                 NavigationBar.setButtonStyleAsync('dark');
             }
         }, [])
@@ -65,8 +64,12 @@ export default function ProfileScreen() {
             setLoading(true);
             const res = await apiClient.get('/api/user/profile');
             setProfile(res.data.user);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Fetch profile error:', error);
+            if (error.response?.status === 401 || error.response?.status === 404) {
+                await AsyncStorage.removeItem('userToken');
+                router.replace('/login' as any);
+            }
         } finally {
             setLoading(false);
         }

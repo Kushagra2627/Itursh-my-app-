@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, RefreshControl, AppState, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../src/lib/axios';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
 import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -26,6 +27,7 @@ type Booking = {
 };
 
 export default function MyBookingsScreen() {
+    const router = useRouter();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -35,8 +37,12 @@ export default function MyBookingsScreen() {
         try {
             const res = await apiClient.get('/api/user/my-bookings');
             setBookings(res.data.bookings || []);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Fetch bookings error', error);
+            if (error.response?.status === 401 || error.response?.status === 404) {
+                await AsyncStorage.removeItem('userToken');
+                router.replace('/login' as any);
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -52,7 +58,6 @@ export default function MyBookingsScreen() {
             setStatusBarBackgroundColor('#FFF', true);
 
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#F1F5F1');
                 NavigationBar.setButtonStyleAsync('dark');
             }
         }, [])

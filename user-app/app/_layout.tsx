@@ -12,7 +12,6 @@ export default function RootLayout() {
         checkToken();
         // Global Bottom Navigation Bar for Android
         if (Platform.OS === 'android') {
-            NavigationBar.setBackgroundColorAsync('#F1F5F1'); // Light gray-green to contrast slightly with #F9FBF9
             NavigationBar.setButtonStyleAsync('dark');
         }
     }, []);

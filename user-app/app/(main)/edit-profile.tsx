@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../src/lib/axios';
 
 const GREEN = '#4CAF50';
@@ -30,9 +31,14 @@ export default function EditProfileScreen() {
                 email: user.email || '',
                 phone: user.phone || ''
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Fetch profile error:', error);
-            Alert.alert('Error', 'Could not load profile data');
+            if (error.response?.status === 401 || error.response?.status === 404) {
+                await AsyncStorage.removeItem('userToken');
+                router.replace('/login' as any);
+                return;
+            }
+            Alert.alert('Error', 'Failed to load profile');
         } finally {
             setLoading(false);
         }
