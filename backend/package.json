@@ -3,10 +3,11 @@
     "version": "1.0.0",
     "description": "Admin backend for rental apartment platform",
     "main": "src/app.js",
-    "scripts": {
-        "start": "node src/app.js",
-        "dev": "nodemon src/app.js"
-    },
+  "scripts": {
+    "start": "node src/app.js",
+    "build": "npx prisma generate",
+    "render-start": "npx prisma migrate deploy && node src/app.js"
+  },
     "dependencies": {
         "@prisma/client": "^5.22.0",
         "bcryptjs": "^2.4.3",
