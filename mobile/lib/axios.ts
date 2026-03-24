@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 // For Android emulator use: 10.0.2.2
 // For iOS simulator use: localhost
 // For physical device use your machine's LAN IP (e.g. 192.168.1.7)
-const BASE_URL = 'http://192.168.29.164:3000';
+const BASE_URL = 'https://itursh-my-app-3.onrender.com';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
