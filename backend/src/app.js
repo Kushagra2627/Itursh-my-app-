@@ -37,8 +37,8 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Admin API running on http://0.0.0.0:${PORT}`);
+app.listen(PORT,() => {
+    console.log(`backend  running on ${PORT}`);
 });
 
 module.exports = app;
