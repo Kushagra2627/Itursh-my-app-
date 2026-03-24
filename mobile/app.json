@@ -26,7 +26,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.kushagra2627.rentaladmin"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,6 +35,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d7ca6599-33fc-4bae-9c98-8255f1782e92"
+      }
+    }
   }
 }
