@@ -232,7 +232,7 @@ const approveBooking = async (req, res) => {
         return res.status(200).json({ message: 'Booking approved successfully', booking: updatedBooking });
     } catch (error) {
         console.error('Approve booking error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ error: 'Internal server error', message: error.message });
     }
 };
 
@@ -260,7 +260,7 @@ const rejectBooking = async (req, res) => {
         return res.status(200).json({ booking: updatedBooking, message: 'Booking rejected successfully' });
     } catch (error) {
         console.error('Reject booking error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ error: 'Internal server error', message: error.message });
     }
 };
 
@@ -288,7 +288,7 @@ const markBookingAsBooked = async (req, res) => {
         return res.status(200).json({ booking: updatedBooking, message: 'Booking fully confirmed and property marked booked' });
     } catch (error) {
         console.error('Mark booking booked error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ error: 'Internal server error', message: error.message });
     }
 };
 
