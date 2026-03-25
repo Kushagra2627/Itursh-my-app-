@@ -316,7 +316,7 @@ const cancelBooking = async (req, res) => {
         return res.status(200).json({ booking: updatedBooking, message: 'Booking cancelled and property reverted to available' });
     } catch (error) {
         console.error('Cancel booking error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ error: 'Internal server error', message: error.message });
     }
 };
 
