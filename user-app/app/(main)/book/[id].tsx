@@ -11,17 +11,14 @@ export default function BookScreen() {
     const router = useRouter();
 
     const [form, setForm] = useState({
-        tenantName: '',
-        tenantEmail: '',
-        phone: '',
         peopleCount: '1',
         notes: ''
     });
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!form.tenantName || !form.tenantEmail) {
-            Alert.alert("Error", "Please fill name and email at minimum.");
+        if (!form.peopleCount) {
+            Alert.alert("Error", "Please enter the number of people.");
             return;
         }
 
@@ -31,13 +28,12 @@ export default function BookScreen() {
 
             const payload = {
                 propertyId: id,
-                ...form,
-                peopleCount: parseInt(form.peopleCount) || 1
+                peopleCount: parseInt(form.peopleCount) || 1,
+                notes: form.notes
             };
 
             const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
-            // Adjust to your actual backend API endpoint
             await apiClient.post(`/api/user/bookings`, payload, config);
 
             Alert.alert("Success!", "Your booking has been created.", [
@@ -61,32 +57,6 @@ export default function BookScreen() {
             </View>
 
             <View style={styles.form}>
-                <Text style={styles.label}>Full Name</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter your name"
-                    value={form.tenantName}
-                    onChangeText={(val) => setForm(f => ({ ...f, tenantName: val }))}
-                />
-
-                <Text style={styles.label}>Email Address</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    value={form.tenantEmail}
-                    onChangeText={(val) => setForm(f => ({ ...f, tenantEmail: val }))}
-                />
-
-                <Text style={styles.label}>Phone Number</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter your phone"
-                    keyboardType="phone-pad"
-                    value={form.phone}
-                    onChangeText={(val) => setForm(f => ({ ...f, phone: val }))}
-                />
-
                 <Text style={styles.label}>Number of People</Text>
                 <TextInput
                     style={styles.input}

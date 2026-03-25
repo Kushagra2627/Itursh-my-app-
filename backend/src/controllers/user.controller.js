@@ -131,12 +131,21 @@ const getPropertyById = async (req, res) => {
 // ─── POST /api/user/bookings ─────────────────────────────────────────────────
 const createBooking = async (req, res) => {
     try {
-        const { propertyId, tenantName, tenantEmail, phone, peopleCount, notes } = req.body;
-        const userId = req.user?.id; // from auth middleware, but we allow unauthenticated booking if needed? 
-        // Actually requirements say user app, so users should be logged in. Requirment: "Booking Feature: Full Name, Phone, Email, Number of people, Notes"
+        const { propertyId, peopleCount, notes } = req.body;
+        const userId = req.user.id;
 
-        if (!propertyId || !tenantName || !tenantEmail || !phone || !peopleCount) {
-            return res.status(400).json({ error: 'Property ID, Name, Email, Phone, and People Count are required' });
+        if (!propertyId || !peopleCount) {
+            return res.status(400).json({ error: 'Property ID and People Count are required' });
+        }
+
+        // Fetch user details from database
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, email: true, phone: true }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
         }
 
         const property = await prisma.property.findUnique({ where: { id: propertyId } });
@@ -156,12 +165,12 @@ const createBooking = async (req, res) => {
             prisma.booking.create({
                 data: {
                     propertyId,
-                    tenantName,
-                    tenantEmail,
-                    phone,
+                    tenantName: user.name,
+                    tenantEmail: user.email,
+                    phone: user.phone,
                     peopleCount: parseInt(peopleCount),
                     notes,
-                    userId: userId || null,
+                    userId: userId,
                 },
             }),
             prisma.property.update({

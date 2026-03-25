@@ -15,7 +15,7 @@ const BACKEND_URL = (apiClient.defaults.baseURL || '').replace('/api', '');
 
 type Booking = {
     id: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'BOOKED';
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'BOOKED' | 'CANCELLED';
     tenantName: string;
     createdAt: string;
     property: {
@@ -88,6 +88,7 @@ export default function MyBookingsScreen() {
             case 'APPROVED': return '#4CAF50';
             case 'BOOKED': return '#2E7D32'; // darker green
             case 'REJECTED': return '#F44336';
+            case 'CANCELLED': return '#9E9E9E'; // GREY
             default: return '#FF9800'; // PENDING
         }
     };

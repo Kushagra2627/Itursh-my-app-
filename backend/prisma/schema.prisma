@@ -47,6 +47,7 @@ enum BookingStatus {
   APPROVED
   BOOKED
   REJECTED
+  CANCELLED
 }
 
 model User {

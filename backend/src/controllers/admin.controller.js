@@ -197,7 +197,7 @@ const getBookings = async (req, res) => {
             orderBy: { createdAt: 'desc' },
             include: {
                 property: {
-                    select: { id: true, title: true, location: true },
+                    select: { id: true, title: true, location: true, price: true },
                 },
             },
         });
@@ -218,11 +218,16 @@ const approveBooking = async (req, res) => {
             return res.status(404).json({ error: 'Booking not found' });
         }
 
-        // Only update booking status, do NOT hide property yet
-        const updatedBooking = await prisma.booking.update({
-            where: { id },
-            data: { status: 'APPROVED' },
-        });
+        const [updatedBooking] = await prisma.$transaction([
+            prisma.booking.update({
+                where: { id },
+                data: { status: 'APPROVED' },
+            }),
+            prisma.property.update({
+                where: { id: booking.propertyId },
+                data: { isInProcess: true },
+            }),
+        ]);
 
         return res.status(200).json({ message: 'Booking approved successfully', booking: updatedBooking });
     } catch (error) {
@@ -287,6 +292,34 @@ const markBookingAsBooked = async (req, res) => {
     }
 };
 
+// ─── PATCH /api/admin/bookings/:id/cancel ─────────────────────────────────────
+const cancelBooking = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const booking = await prisma.booking.findUnique({ where: { id } });
+        if (!booking) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        const [updatedBooking] = await prisma.$transaction([
+            prisma.booking.update({
+                where: { id },
+                data: { status: 'CANCELLED' },
+            }),
+            prisma.property.update({
+                where: { id: booking.propertyId },
+                data: { isInProcess: false, isBooked: false },
+            }),
+        ]);
+
+        return res.status(200).json({ booking: updatedBooking, message: 'Booking cancelled and property reverted to available' });
+    } catch (error) {
+        console.error('Cancel booking error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 // ─── GET /api/admin/analytics ─────────────────────────────────────────────────
 const getAnalytics = async (req, res) => {
     try {
@@ -323,6 +356,7 @@ module.exports = {
     approveBooking,
     rejectBooking,
     markBookingAsBooked,
+    cancelBooking,
     getAnalytics,
     uploadPropertyMedia,
 };

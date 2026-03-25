@@ -30,14 +30,17 @@
       "package": "com.kushagra2627.rentaladmin"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store"
     ],
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false
+      },
       "eas": {
         "projectId": "d7ca6599-33fc-4bae-9c98-8255f1782e92"
       }

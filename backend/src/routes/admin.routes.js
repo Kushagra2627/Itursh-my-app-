@@ -13,6 +13,7 @@ const {
     approveBooking,
     rejectBooking,
     markBookingAsBooked,
+    cancelBooking,
     getAnalytics,
     uploadPropertyMedia,
 } = require('../controllers/admin.controller');
@@ -33,6 +34,7 @@ router.get('/bookings', verifyAdminToken, getBookings);
 router.patch('/bookings/:id/approve', verifyAdminToken, approveBooking);
 router.patch('/bookings/:id/reject', verifyAdminToken, rejectBooking);
 router.patch('/bookings/:id/booked', verifyAdminToken, markBookingAsBooked);
+router.patch('/bookings/:id/cancel', verifyAdminToken, cancelBooking);
 
 router.get('/analytics', verifyAdminToken, getAnalytics);
 

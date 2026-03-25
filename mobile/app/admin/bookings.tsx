@@ -22,12 +22,13 @@ type Booking = {
     phone?: string;
     peopleCount?: number;
     notes?: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'BOOKED';
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'BOOKED' | 'CANCELLED';
     createdAt: string;
     property: {
         id: string;
         title: string;
         location: string;
+        price: number;
     };
 };
 
@@ -39,6 +40,7 @@ const STATUS_CONFIG: Record<
     APPROVED: { label: 'APPROVED', bg: '#E8F5E9', text: '#2E7D32' },
     BOOKED: { label: 'BOOKED', bg: '#E3F2FD', text: '#1565C0' },
     REJECTED: { label: 'REJECTED', bg: '#FFEBEE', text: '#C62828' },
+    CANCELLED: { label: 'CANCELLED', bg: '#E0E0E0', text: '#616161' },
 };
 
 export default function Bookings() {
@@ -89,6 +91,16 @@ export default function Bookings() {
         }
     };
 
+    const handleCancel = async (id: string) => {
+        try {
+            await apiClient.patch(`/api/admin/bookings/${id}/cancel`);
+            Alert.alert('Success', 'Booking cancelled and property reverted to available.');
+            fetchBookings();
+        } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to cancel booking.');
+        }
+    };
+
     useFocusEffect(
         useCallback(() => {
             setLoading(true);
@@ -128,7 +140,10 @@ export default function Bookings() {
                 <Text style={styles.propertyTitle} numberOfLines={1}>
                     🏠 {item.property?.title ?? 'Unknown Property'}
                 </Text>
-                <Text style={styles.location}>📍 {item.property?.location ?? '—'}</Text>
+                <View style={styles.cardInfoRow}>
+                    <Text style={styles.location}>📍 {item.property?.location ?? '—'}</Text>
+                    <Text style={styles.price}>₹ {item.property?.price ?? '—'}</Text>
+                </View>
 
                 {/* Divider */}
                 <View style={styles.divider} />
@@ -137,7 +152,7 @@ export default function Bookings() {
                 <Text style={styles.tenantLabel}>Tenant</Text>
                 <Text style={styles.tenantName}>{item.tenantName}</Text>
                 <Text style={styles.tenantEmail}>{item.tenantEmail}</Text>
-                {item.phone && <Text style={styles.tenantPhone}>📞 {item.phone}</Text>}
+                {item.phone && <Text style={styles.tenantStatus}>📞 {item.phone}  •  👥 {item.peopleCount}</Text>}
 
                 <Text style={styles.date}>📅 {date}</Text>
 
@@ -162,6 +177,12 @@ export default function Bookings() {
                 {/* Actions for APPROVED */}
                 {item.status === 'APPROVED' && (
                     <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={[styles.actionBtn, styles.cancelBtn]}
+                            onPress={(e) => { e.stopPropagation(); handleCancel(item.id); }}
+                        >
+                            <Text style={styles.actionBtnText}>Revert</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.actionBtn, styles.bookActionBtn]}
                             onPress={(e) => { e.stopPropagation(); handleBooked(item.id); }}
@@ -212,6 +233,7 @@ export default function Bookings() {
                             <Text style={styles.modalSectionTitle}>Property</Text>
                             <Text style={styles.modalText}>Name: {selectedBooking.property.title}</Text>
                             <Text style={styles.modalText}>Location: {selectedBooking.property.location}</Text>
+                            <Text style={styles.modalText}>Price: ₹ {selectedBooking.property.price}</Text>
 
                             <View style={styles.divider} />
 
@@ -253,13 +275,22 @@ export default function Bookings() {
                         {selectedBooking.status === 'APPROVED' && (
                             <View style={styles.modalActionRow}>
                                 <TouchableOpacity
-                                    style={[styles.actionBtn, styles.bookActionBtn, { flex: 1 }]}
+                                    style={[styles.actionBtn, styles.cancelBtn, { flex: 1 }]}
+                                    onPress={() => {
+                                        handleCancel(selectedBooking.id);
+                                        setSelectedBooking(null);
+                                    }}
+                                >
+                                    <Text style={styles.actionBtnText}>Cancel / Revert</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.actionBtn, styles.bookActionBtn, { flex: 1, marginLeft: 12 }]}
                                     onPress={() => {
                                         handleBooked(selectedBooking.id);
                                         setSelectedBooking(null);
                                     }}
                                 >
-                                    <Text style={styles.actionBtnText}>Confirm Payment & Book</Text>
+                                    <Text style={styles.actionBtnText}>Confirm & Book</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -297,14 +328,16 @@ const styles = StyleSheet.create({
     badgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
 
     propertyTitle: { fontSize: 16, fontWeight: '700', color: VIOLET_DARK, marginBottom: 4 },
-    location: { fontSize: 13, color: '#666', marginBottom: 12 },
+    cardInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    location: { fontSize: 13, color: '#666' },
+    price: { fontSize: 13, fontWeight: '700', color: VIOLET },
 
     divider: { height: 1, backgroundColor: '#F0EAF8', marginBottom: 12 },
 
     tenantLabel: { fontSize: 11, fontWeight: '600', color: '#AAA', textTransform: 'uppercase', marginBottom: 4 },
     tenantName: { fontSize: 15, fontWeight: '600', color: '#2D1B4E', marginBottom: 2 },
     tenantEmail: { fontSize: 13, color: '#666', marginBottom: 4 },
-    tenantPhone: { fontSize: 13, color: '#444', fontWeight: '500', marginBottom: 8 },
+    tenantStatus: { fontSize: 13, color: '#444', fontWeight: '500', marginBottom: 8 },
     date: { fontSize: 12, color: '#999' },
 
     empty: { alignItems: 'center', paddingVertical: 60 },
@@ -328,6 +361,7 @@ const styles = StyleSheet.create({
     approveBtn: { backgroundColor: '#2E7D32' },
     rejectBtn: { backgroundColor: '#C62828' },
     bookActionBtn: { backgroundColor: '#1976D2' },
+    cancelBtn: { backgroundColor: '#757575' },
     actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
 
     // Modal Styles
