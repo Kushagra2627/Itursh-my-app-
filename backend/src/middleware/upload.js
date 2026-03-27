@@ -1,10 +1,24 @@
-const multer = require('multer');
-const path = require('path');
+const sharp = require('sharp');
 const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
 // Ensure upload directories exist
 const uploadDir = path.join(__dirname, '../../public/uploads');
+
+const compressImage = async (filePath) => {
+  const outputPath = filePath.replace(/(\.\w+)$/, '-compressed.jpg');
+
+  await sharp(filePath)
+    .resize(800) // max width
+    .jpeg({ quality: 70 })
+    .toFile(outputPath);
+
+  fs.unlinkSync(filePath); // delete original
+
+  return path.basename(outputPath);
+};
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -37,4 +51,20 @@ const upload = multer({
     fileFilter,
 });
 
-module.exports = upload;
+module.exports = (req, res, next) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) return next(err);
+
+    if (req.file && req.file.mimetype.startsWith('image/')) {
+      try {
+        const compressedFileName = await compressImage(req.file.path);
+        req.file.filename = compressedFileName;
+        req.file.path = path.join(uploadDir, compressedFileName);
+      } catch (e) {
+        return next(e);
+      }
+    }
+
+    next();
+  });
+};
