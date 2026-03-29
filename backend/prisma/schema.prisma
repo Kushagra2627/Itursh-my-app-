@@ -59,4 +59,16 @@ model User {
   createdAt DateTime  @default(now())
   
   bookings  Booking[]
+  notifications Notification[]
 }
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+

@@ -229,7 +229,19 @@ const approveBooking = async (req, res) => {
             }),
         ]);
 
+        // Create notification for the user if booking has a userId
+        if (updatedBooking.userId) {
+            await prisma.notification.create({
+                data: {
+                    userId: updatedBooking.userId,
+                    title: 'Booking Approved',
+                    message: 'Your property visit has been approved. Please contact support or visit the property.'
+                }
+            });
+        }
+
         return res.status(200).json({ message: 'Booking approved successfully', booking: updatedBooking });
+
     } catch (error) {
         console.error('Approve booking error:', error);
         return res.status(500).json({ error: 'Internal server error', message: error.message });

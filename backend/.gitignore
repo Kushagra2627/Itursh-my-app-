@@ -1,5 +1,25 @@
-# Backend .gitignore
+# Dependencies
 node_modules/
+
+# Environment
 .env
 .env.local
+
+# Build
 dist/
+
+# Uploads (VERY IMPORTANT)
+public/uploads/
+
+# Logs
+*.log
+
+# Temp / editor files
+*.swp
+*.swo
+*.save
+*.tmp
+
+# OS junk
+.DS_Store
+Thumbs.db

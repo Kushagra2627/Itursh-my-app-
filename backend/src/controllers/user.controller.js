@@ -254,13 +254,52 @@ const updateProfile = async (req, res) => {
     }
 };
 
+// ─── GET /api/user/notifications ─────────────────────────────────────────────
+const getNotifications = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const notifications = await prisma.notification.findMany({
+            where: { userId },
+            orderBy: [
+                { isRead: 'asc' },
+                { createdAt: 'desc' }
+            ]
+        });
+        return res.status(200).json({ notifications });
+    } catch (error) {
+        console.error('Get notifications error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// ─── PATCH /api/user/notifications/:id/read ──────────────────────────────────
+const markNotificationAsRead = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const notification = await prisma.notification.findUnique({ where: { id } });
+        if (!notification || notification.userId !== userId) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+
+        await prisma.notification.update({
+            where: { id },
+            data: { isRead: true }
+        });
+
+        return res.status(200).json({ message: 'Notification marked as read' });
+    } catch (error) {
+        console.error('Mark notification read error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
 module.exports = {
-    signup,
-    login,
-    getProperties,
-    getPropertyById,
-    createBooking,
     getMyBookings,
     getProfile,
     updateProfile,
+    getNotifications,
+    markNotificationAsRead,
 };

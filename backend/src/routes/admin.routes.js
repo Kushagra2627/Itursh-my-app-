@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyAdminToken } = require('../middleware/auth.middleware');
-const { upload, compressMiddleware } = require('../middleware/upload');
+const upload = require('../middleware/upload');
 const {
     login,
     createProperty,
@@ -20,7 +20,7 @@ const {
 
 
 // ─── Public ──────────────────────────────────────────────────────────────────
-router.post('/login', login);
+router.post('/login', loginLimiter, login);
 
 // ─── Protected (requires valid admin JWT) ────────────────────────────────────
 router.get('/properties', verifyAdminToken, getAllProperties);

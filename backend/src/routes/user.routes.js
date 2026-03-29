@@ -10,7 +10,9 @@ const {
     getProperties,
     getPropertyById,
     getProfile,
-    updateProfile
+    updateProfile,
+    getNotifications,
+    markNotificationAsRead
 } = require('../controllers/user.controller');
 
 // ─── User Auth Middleware ────────────────────────────────────────────────────
@@ -40,5 +42,9 @@ router.get('/my-bookings', verifyUserToken, getMyBookings);
 router.post('/bookings', verifyUserToken, createBooking);
 router.get('/profile', verifyUserToken, getProfile);
 router.patch('/profile', verifyUserToken, updateProfile);
+
+// ─── Notifications ──────────────
+router.get('/notifications', verifyUserToken, getNotifications);
+router.patch('/notifications/:id/read', verifyUserToken, markNotificationAsRead);
 
 module.exports = router;
