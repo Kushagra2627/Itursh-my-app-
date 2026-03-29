@@ -8,6 +8,7 @@ import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar'
 import * as NavigationBar from 'expo-navigation-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../src/lib/axios';
+import { useNotifications } from '../../src/hooks/useNotifications';
 
 const GREEN = '#4CAF50';
 const GREEN_LIGHT = '#E8F5E9';
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const { unreadCount } = useNotifications();
 
     useFocusEffect(
         useCallback(() => {
@@ -132,6 +134,17 @@ export default function ProfileScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.header}
             >
+                <TouchableOpacity 
+                    style={styles.notificationHeaderBtn}
+                    onPress={() => router.push('/(main)/notifications' as any)}
+                >
+                    <Ionicons name="notifications" size={24} color="#fff" />
+                    {unreadCount > 0 && (
+                        <View style={styles.headerBadge}>
+                            <Text style={styles.headerBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
                 {/* outer glow ring */}
                 <View style={styles.avatarRing}>
                     <LinearGradient
@@ -156,6 +169,21 @@ export default function ProfileScreen() {
                             <Ionicons name="create-outline" size={20} color={GREEN} />
                         </View>
                         <Text style={styles.menuItemText}>Edit Profile</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(main)/notifications' as any)}>
+                    <View style={styles.menuItemLeft}>
+                        <View style={styles.iconBox}>
+                            <Ionicons name="notifications-outline" size={20} color={GREEN} />
+                        </View>
+                        <Text style={styles.menuItemText}>Notifications</Text>
+                        {unreadCount > 0 && (
+                            <View style={styles.menuBadge}>
+                                <Text style={styles.menuBadgeText}>{unreadCount}</Text>
+                            </View>
+                        )}
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="#CCC" />
                 </TouchableOpacity>
@@ -363,5 +391,43 @@ const styles = StyleSheet.create({
         color: '#D32F2F',
         fontSize: 16,
         fontWeight: 'bold',
-    }
+    },
+    notificationHeaderBtn: {
+        position: 'absolute',
+        top: 50,
+        right: 24,
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 12,
+    },
+    headerBadge: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        backgroundColor: '#FF3B30',
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#2E7D32',
+    },
+    headerBadgeText: {
+        color: '#FFF',
+        fontSize: 9,
+        fontWeight: 'bold',
+    },
+    menuBadge: {
+        backgroundColor: '#FF3B30',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 10,
+        marginLeft: 8,
+    },
+    menuBadgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
 });

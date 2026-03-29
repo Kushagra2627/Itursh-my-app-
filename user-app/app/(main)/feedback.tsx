@@ -43,7 +43,7 @@ export default function FeedbackScreen() {
                     </View>
 
                     <View style={styles.content}>
-                        <Text style={styles.heading}>We'd love to hear from you!</Text>
+                        <Text style={styles.heading}>We&apos;d love to hear from you!</Text>
                         <Text style={styles.subtitle}>
                             Please share your thoughts, suggestions, or any issues you are facing with our app.
                         </Text>

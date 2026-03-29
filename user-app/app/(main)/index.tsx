@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
+import { useNotifications } from '../../src/hooks/useNotifications';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,6 +41,8 @@ export default function HomeScreen() {
     const [filterModal, setFilterModal] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
     const [showHint, setShowHint] = useState(false);
+
+    const { unreadCount } = useNotifications();
 
     // Refresh spin animation
     const spinAnim = useRef(new Animated.Value(0)).current;
@@ -203,9 +206,11 @@ export default function HomeScreen() {
                                 keyExtractor={(img, index) => `${item.id}-${index}`}
                                 renderItem={({ item: img }) => (
                                     <Image
-                                        source={{ uri: `${BACKEND_URL}${img}` }}
+                                        source={{ uri: `${BACKEND_URL}/${img.replace(/^\/+/, '')}` }}
                                         style={styles.image}
                                         defaultSource={require('../../assets/images/icon.png')}
+                                        onLoad={() => console.log("IMAGE URL (Home Card):", `${BACKEND_URL}/${img.replace(/^\/+/, '')}`)}
+                                        onError={(e) => console.error("IMAGE LOAD ERROR (Home Card):", e.nativeEvent.error, `${BACKEND_URL}/${img.replace(/^\/+/, '')}`)}
                                     />
                                 )}
                             />
@@ -317,6 +322,19 @@ export default function HomeScreen() {
                     <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModal(true)}>
                         <Ionicons name="options" size={24} color={GREEN_DARK} />
                     </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.filterBtn} 
+                        onPress={() => router.push('/(main)/notifications' as any)}
+                    >
+                        <Ionicons name="notifications" size={24} color={GREEN_DARK} />
+                        {unreadCount > 0 && (
+                            <View style={styles.badgeDot}>
+                                <Text style={styles.badgeTextCount}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
                 </View>
             </LinearGradient>
 
@@ -696,6 +714,26 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         fontWeight: '600',
+    },
+
+    badgeDot: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#FF3B30',
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 3,
+        borderWidth: 1.5,
+        borderColor: '#E8F5E9',
+    },
+    badgeTextCount: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: '800',
     },
 
 });

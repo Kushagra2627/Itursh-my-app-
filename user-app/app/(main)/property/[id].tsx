@@ -87,9 +87,11 @@ export default function PropertyDetailScreen() {
     }
 
     // Prepare full image URIs for Image Viewer
-    const imageUris = (property.images || []).map(img => ({
-        uri: `${BACKEND_URL}${img}`
-    }));
+    const imageUris = (property.images || []).map(img => {
+        const url = `${BACKEND_URL}/${img.replace(/^\/+/, '')}`;
+        console.log("IMAGE URL (Viewer):", url);
+        return { uri: url };
+    });
 
     return (
         <View style={styles.container}>
@@ -114,9 +116,11 @@ export default function PropertyDetailScreen() {
                                         }}
                                     >
                                         <Image
-                                            source={{ uri: `${BACKEND_URL}${item}` }}
+                                            source={{ uri: `${BACKEND_URL}/${item.replace(/^\/+/, '')}` }}
                                             style={styles.carouselImage}
                                             defaultSource={require('../../../assets/images/icon.png')}
+                                            onLoad={() => console.log("IMAGE URL (Carousel):", `${BACKEND_URL}/${item.replace(/^\/+/, '')}`)}
+                                            onError={(e) => console.error("IMAGE LOAD ERROR (Carousel):", e.nativeEvent.error, `${BACKEND_URL}/${item.replace(/^\/+/, '')}`)}
                                         />
                                     </TouchableOpacity>
                                 )}

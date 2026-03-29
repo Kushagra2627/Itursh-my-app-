@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 // For Android emulator use: 10.0.2.2
 // For iOS simulator use: localhost
 // For physical device use your machine's LAN IP (e.g. 192.168.1.7)
-const BASE_URL = 'https://itursh-my-app-3.onrender.com';
+const BASE_URL = 'http://51.20.251.206';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
@@ -35,6 +35,13 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
+        console.error('--- AXIOS ERROR ---');
+        console.error('Message:', error.message);
+        console.error('Status:', error.response?.status);
+        console.error('Data:', JSON.stringify(error.response?.data));
+        console.error('URL:', error.config?.url);
+        console.error('-------------------');
+        
         const message =
             error?.response?.data?.error || error?.message || 'An unknown error occurred';
         return Promise.reject(new Error(message));

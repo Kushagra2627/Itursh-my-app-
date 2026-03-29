@@ -94,9 +94,12 @@ export default function MyBookingsScreen() {
     };
 
     const renderBooking = ({ item }: { item: Booking }) => {
-        const imageUri = item.property.images?.[0]
-            ? `${BACKEND_URL}${item.property.images[0]}`
+        const rawImage = item.property.images?.[0];
+        const imageUri = rawImage
+            ? `${BACKEND_URL}/${rawImage.replace(/^\/+/, '')}`
             : null;
+
+        if (imageUri) console.log("IMAGE URL (Booking):", imageUri);
 
         return (
             <View style={styles.card}>
@@ -106,6 +109,7 @@ export default function MyBookingsScreen() {
                             source={{ uri: imageUri }}
                             style={styles.image}
                             defaultSource={require('../../assets/images/icon.png')}
+                            onError={(e) => console.error("IMAGE LOAD ERROR (Booking):", e.nativeEvent.error, imageUri)}
                         />
                     ) : (
                         <View style={[styles.image, styles.noImage]}>
@@ -150,7 +154,7 @@ export default function MyBookingsScreen() {
             {bookings.length === 0 ? (
                 <View style={styles.center}>
                     <Ionicons name="calendar-outline" size={64} color="#CCC" />
-                    <Text style={styles.noData}>You haven't made any bookings yet.</Text>
+                    <Text style={styles.noData}>You haven&apos;t made any bookings yet.</Text>
                 </View>
             ) : (
                 <FlatList
