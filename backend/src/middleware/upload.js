@@ -51,20 +51,29 @@ const upload = multer({
     fileFilter,
 });
 
-module.exports = (req, res, next) => {
-  upload.single('file')(req, res, async (err) => {
-    if (err) return next(err);
+const compressMiddleware = async (req, res, next) => {
+  try {
+    if (req.files) {
+      for (let file of req.files) {
+        if (file.mimetype.startsWith('image/')) {
+          const outputPath = file.path.replace(/(\.\w+)$/, '-compressed.jpg');
 
-    if (req.file && req.file.mimetype.startsWith('image/')) {
-      try {
-        const compressedFileName = await compressImage(req.file.path);
-        req.file.filename = compressedFileName;
-        req.file.path = path.join(uploadDir, compressedFileName);
-      } catch (e) {
-        return next(e);
+          await sharp(file.path)
+            .resize(800)
+            .jpeg({ quality: 70 })
+            .toFile(outputPath);
+
+          fs.unlinkSync(file.path);
+
+          file.filename = path.basename(outputPath);
+          file.path = outputPath;
+        }
       }
     }
-
     next();
-  });
+  } catch (err) {
+    next(err);
+  }
 };
+
+module.exports = {upload, compressMiddleware};
