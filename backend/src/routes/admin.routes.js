@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyAdminToken } = require('../middleware/auth.middleware');
-const upload = require('../middleware/upload');
+const { upload, compressMiddleware } = require('../middleware/upload');
 const {
     login,
     createProperty,
@@ -28,7 +28,7 @@ router.post('/properties', verifyAdminToken, createProperty);
 router.patch('/properties/:id', verifyAdminToken, updateProperty);
 router.delete('/properties/:id', verifyAdminToken, deleteProperty);
 router.patch('/properties/:id/book', verifyAdminToken, markBooked);
-router.post('/properties/:id/media', verifyAdminToken, upload.array('media', 10), uploadPropertyMedia);
+router.post('/properties/:id/media', verifyAdminToken, upload.array('media', 10), compressMiddleware, uploadPropertyMedia);
 
 router.get('/bookings', verifyAdminToken, getBookings);
 router.patch('/bookings/:id/approve', verifyAdminToken, approveBooking);
