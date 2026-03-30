@@ -20,7 +20,7 @@ const {
 
 
 // ─── Public ──────────────────────────────────────────────────────────────────
-router.post('/login', loginLimiter, login);
+router.post('/login', login);
 
 // ─── Protected (requires valid admin JWT) ────────────────────────────────────
 router.get('/properties', verifyAdminToken, getAllProperties);
@@ -28,7 +28,7 @@ router.post('/properties', verifyAdminToken, createProperty);
 router.patch('/properties/:id', verifyAdminToken, updateProperty);
 router.delete('/properties/:id', verifyAdminToken, deleteProperty);
 router.patch('/properties/:id/book', verifyAdminToken, markBooked);
-router.post('/properties/:id/media', verifyAdminToken, upload.array('media', 10), compressMiddleware, uploadPropertyMedia);
+router.post('/properties/:id/media', verifyAdminToken, upload.array('media', 10), uploadPropertyMedia);
 
 router.get('/bookings', verifyAdminToken, getBookings);
 router.patch('/bookings/:id/approve', verifyAdminToken, approveBooking);
