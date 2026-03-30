@@ -297,6 +297,11 @@ const markNotificationAsRead = async (req, res) => {
 
 
 module.exports = {
+    signup,
+    login,
+    getProperties,
+    getPropertyById,
+    createBooking,
     getMyBookings,
     getProfile,
     updateProfile,
