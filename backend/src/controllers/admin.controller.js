@@ -1,74 +1,66 @@
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const https = require('https');
 
 const prisma = new PrismaClient();
 
-let Expo;
-let expo;
+// Check if a token looks like an Expo push token
+const isExpoPushToken = (token) =>
+    typeof token === 'string' && token.startsWith('ExponentPushToken[');
 
-// Dynamically load the ESM module
-(async () => {
-    try {
-        const mod = await import('expo-server-sdk');
-        Expo = mod.Expo;
-        expo = new Expo();
-    } catch (err) {
-        console.error('Failed to load expo-server-sdk', err);
-    }
-})();
+// Send push notifications via plain HTTPS — no SDK required, works on any Node version
+const sendExpoPush = (messages) => {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify(messages);
+        const options = {
+            hostname: 'exp.host',
+            path: '/--/api/v2/push/send',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Accept-Encoding': 'gzip, deflate',
+                'Content-Length': Buffer.byteLength(body),
+            },
+        };
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => resolve(data));
+        });
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+    });
+};
 
-// Helper to send push notification
+// Helper to send push notification to one user
 const sendPushNotification = async (pushToken, title, body) => {
-    if (!Expo || !expo) return;
-
-    if (!Expo.isExpoPushToken(pushToken)) {
-        console.error(`Push token ${pushToken} is not a valid Expo push token`);
+    if (!isExpoPushToken(pushToken)) {
+        console.error(`Invalid Expo push token: ${pushToken}`);
         return;
     }
-
-    const messages = [{
-        to: pushToken,
-        sound: 'default',
-        title: title,
-        body: body,
-        data: { },
-    }];
-
     try {
-        const chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-            await expo.sendPushNotificationsAsync(chunk);
-        }
+        await sendExpoPush([{ to: pushToken, sound: 'default', title, body }]);
     } catch (error) {
         console.error('Error sending push notification:', error);
     }
 };
 
-// Helper to broadcast push to all users
+// Helper to broadcast push to all users with a saved token
 const broadcastPushNotification = async (title, body) => {
-    if (!Expo || !expo) return;
-
     try {
         const users = await prisma.user.findMany({
             where: { pushToken: { not: null } },
             select: { pushToken: true }
         });
 
-        const messages = [];
-        for (let user of users) {
-            if (Expo.isExpoPushToken(user.pushToken)) {
-                messages.push({
-                    to: user.pushToken,
-                    sound: 'default',
-                    title: title,
-                    body: body,
-                });
-            }
-        }
+        const messages = users
+            .filter(u => isExpoPushToken(u.pushToken))
+            .map(u => ({ to: u.pushToken, sound: 'default', title, body }));
 
-        const chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-            await expo.sendPushNotificationsAsync(chunk);
+        if (messages.length > 0) {
+            await sendExpoPush(messages);
         }
     } catch (error) {
         console.error('Error broadcasting push:', error);
