@@ -1,12 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
-const { Expo } = require('expo-server-sdk');
 
 const prisma = new PrismaClient();
-const expo = new Expo();
+
+let Expo;
+let expo;
+
+// Dynamically load the ESM module
+(async () => {
+    try {
+        const mod = await import('expo-server-sdk');
+        Expo = mod.Expo;
+        expo = new Expo();
+    } catch (err) {
+        console.error('Failed to load expo-server-sdk', err);
+    }
+})();
 
 // Helper to send push notification
 const sendPushNotification = async (pushToken, title, body) => {
+    if (!Expo || !expo) return;
+
     if (!Expo.isExpoPushToken(pushToken)) {
         console.error(`Push token ${pushToken} is not a valid Expo push token`);
         return;
@@ -32,6 +46,8 @@ const sendPushNotification = async (pushToken, title, body) => {
 
 // Helper to broadcast push to all users
 const broadcastPushNotification = async (title, body) => {
+    if (!Expo || !expo) return;
+
     try {
         const users = await prisma.user.findMany({
             where: { pushToken: { not: null } },
