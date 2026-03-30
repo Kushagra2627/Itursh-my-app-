@@ -10,9 +10,9 @@ export default function RootLayout() {
 
     useEffect(() => {
         checkToken();
-        // Global Bottom Navigation Bar for Android
         if (Platform.OS === 'android') {
-            NavigationBar.setButtonStyleAsync('dark');
+            NavigationBar.setBackgroundColorAsync('#1A1A2E');
+            NavigationBar.setButtonStyleAsync('light');
         }
     }, []);
 
@@ -25,19 +25,15 @@ export default function RootLayout() {
         }
     };
 
-    if (isAuthenticated === null) return null; // loading screen
+    if (isAuthenticated === null) return null;
 
     return (
         <>
-            {/* Global status bar: dark icons on light screens */}
-            <StatusBar style="dark" backgroundColor="#E8F5E9" translucent={false} />
+            <StatusBar style="light" backgroundColor="#1A1A2E" translucent={false} />
             <Stack screenOptions={{ headerShown: false }}>
-                {/* Auth Screens */}
                 <Stack.Screen name="index" />
                 <Stack.Screen name="login" />
                 <Stack.Screen name="signup" />
-
-                {/* Main App Screens */}
                 <Stack.Screen name="(main)" />
             </Stack>
         </>

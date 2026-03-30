@@ -12,7 +12,8 @@ const {
     getProfile,
     updateProfile,
     getNotifications,
-    markNotificationAsRead
+    markNotificationAsRead,
+    savePushToken
 } = require('../controllers/user.controller');
 
 // ─── User Auth Middleware ────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ router.get('/my-bookings', verifyUserToken, getMyBookings);
 router.post('/bookings', verifyUserToken, createBooking);
 router.get('/profile', verifyUserToken, getProfile);
 router.patch('/profile', verifyUserToken, updateProfile);
+router.post('/push-token', verifyUserToken, savePushToken);
 
 // ─── Notifications ──────────────
 router.get('/notifications', verifyUserToken, getNotifications);

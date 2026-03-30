@@ -1,9 +1,63 @@
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const { Expo } = require('expo-server-sdk');
 
 const prisma = new PrismaClient();
+const expo = new Expo();
 
-// ─── Hardcoded Admin Credentials ────────────────────────────────────────────
+// Helper to send push notification
+const sendPushNotification = async (pushToken, title, body) => {
+    if (!Expo.isExpoPushToken(pushToken)) {
+        console.error(`Push token ${pushToken} is not a valid Expo push token`);
+        return;
+    }
+
+    const messages = [{
+        to: pushToken,
+        sound: 'default',
+        title: title,
+        body: body,
+        data: { },
+    }];
+
+    try {
+        const chunks = expo.chunkPushNotifications(messages);
+        for (let chunk of chunks) {
+            await expo.sendPushNotificationsAsync(chunk);
+        }
+    } catch (error) {
+        console.error('Error sending push notification:', error);
+    }
+};
+
+// Helper to broadcast push to all users
+const broadcastPushNotification = async (title, body) => {
+    try {
+        const users = await prisma.user.findMany({
+            where: { pushToken: { not: null } },
+            select: { pushToken: true }
+        });
+
+        const messages = [];
+        for (let user of users) {
+            if (Expo.isExpoPushToken(user.pushToken)) {
+                messages.push({
+                    to: user.pushToken,
+                    sound: 'default',
+                    title: title,
+                    body: body,
+                });
+            }
+        }
+
+        const chunks = expo.chunkPushNotifications(messages);
+        for (let chunk of chunks) {
+            await expo.sendPushNotificationsAsync(chunk);
+        }
+    } catch (error) {
+        console.error('Error broadcasting push:', error);
+    }
+};
 const ADMIN_EMAIL = 'kushagratomar044@gmail.com';
 const ADMIN_PASSWORD = 'Kushagra@123';
 
@@ -56,6 +110,12 @@ const createProperty = async (req, res) => {
                 bathrooms: parseInt(bathrooms),
             },
         });
+
+        // Broadcast a push notification to all users about the new property
+        await broadcastPushNotification(
+            'New Property Available!',
+            `${title} in ${location} is now available for ₹${price}/mo`
+        );
 
         return res.status(201).json({ property, message: 'Property created successfully' });
     } catch (error) {
@@ -238,6 +298,13 @@ const approveBooking = async (req, res) => {
                     message: 'Your property visit has been approved. Please contact support or visit the property.'
                 }
             });
+
+            // Try to send push notification
+            const user = await prisma.user.findUnique({ where: { id: updatedBooking.userId }, select: { pushToken: true } });
+            if (user && user.pushToken) {
+                const property = await prisma.property.findUnique({ where: { id: booking.propertyId }, select: { title: true } });
+                await sendPushNotification(user.pushToken, 'Booking Approved', `Your booking for ${property ? property.title : 'a property'} has been approved!`);
+            }
         }
 
         return res.status(200).json({ message: 'Booking approved successfully', booking: updatedBooking });
@@ -268,6 +335,23 @@ const rejectBooking = async (req, res) => {
                 data: { isInProcess: false },
             }),
         ]);
+
+        if (updatedBooking.userId) {
+            await prisma.notification.create({
+                data: {
+                    userId: updatedBooking.userId,
+                    title: 'Booking Rejected',
+                    message: 'Unfortunately, your booking request was rejected.'
+                }
+            });
+
+            // Try to send push notification
+            const user = await prisma.user.findUnique({ where: { id: updatedBooking.userId }, select: { pushToken: true } });
+            if (user && user.pushToken) {
+                const property = await prisma.property.findUnique({ where: { id: booking.propertyId }, select: { title: true } });
+                await sendPushNotification(user.pushToken, 'Booking Rejected', `Your booking for ${property ? property.title : 'a property'} was rejected.`);
+            }
+        }
 
         return res.status(200).json({ booking: updatedBooking, message: 'Booking rejected successfully' });
     } catch (error) {

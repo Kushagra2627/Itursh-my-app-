@@ -295,6 +295,27 @@ const markNotificationAsRead = async (req, res) => {
     }
 };
 
+// ─── POST /api/user/push-token ────────────────────────────────────────────────
+const savePushToken = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { pushToken } = req.body;
+
+        if (!pushToken) {
+            return res.status(400).json({ error: 'Push token is required' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { pushToken },
+        });
+
+        return res.status(200).json({ message: 'Push token saved successfully' });
+    } catch (error) {
+        console.error('Save push token error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
 module.exports = {
     signup,
@@ -307,4 +328,5 @@ module.exports = {
     updateProfile,
     getNotifications,
     markNotificationAsRead,
+    savePushToken,
 };

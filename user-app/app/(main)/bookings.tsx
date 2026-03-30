@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, RefreshControl, AppState, Platform } from 'react-native';
+import {
+    View, Text, StyleSheet, FlatList, Image,
+    RefreshControl, AppState, Platform, TouchableOpacity, ScrollView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import apiClient from '../../src/lib/axios';
 import { useFocusEffect, useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
-
-const GREEN = '#4CAF50';
-const GREEN_DARK = '#2E7D32';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../../src/lib/axios';
+import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
+import { Colors, Shadow, Radius, Spacing } from '../../src/constants/theme';
 
 const BACKEND_URL = (apiClient.defaults.baseURL || '').replace('/api', '');
 
+type BookingStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'BOOKED' | 'CANCELLED';
+
 type Booking = {
     id: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'BOOKED' | 'CANCELLED';
+    status: BookingStatus;
     tenantName: string;
     createdAt: string;
     property: {
@@ -26,20 +30,167 @@ type Booking = {
     };
 };
 
-export default function MyBookingsScreen() {
+// ─── Progress Tracker Config ───────────────────────────────────────────────────
+// The 4 milestones in the normal flow
+const STEPS = [
+    { key: 'REQUESTED', label: 'Requested', icon: 'document-text-outline' },
+    { key: 'PENDING',   label: 'Under Review', icon: 'time-outline' },
+    { key: 'APPROVED',  label: 'Approved', icon: 'checkmark-circle-outline' },
+    { key: 'BOOKED',    label: 'Booked', icon: 'home-outline' },
+] as const;
+
+/** Returns how many steps are "done" for a given status */
+function getStepIndex(status: BookingStatus): number {
+    switch (status) {
+        case 'PENDING':   return 1; // step 0 done, on step 1
+        case 'APPROVED':  return 2;
+        case 'BOOKED':    return 3;
+        default:          return 0; // REQUESTED / initial
+    }
+}
+
+const isCancelled = (status: BookingStatus) =>
+    status === 'REJECTED' || status === 'CANCELLED';
+
+// ─── Journey Tracker ───────────────────────────────────────────────────────────
+function BookingTracker({ status }: { status: BookingStatus }) {
+    const cancelled = isCancelled(status);
+    const activeIdx = getStepIndex(status);
+
+    return (
+        <View style={tracker.wrapper}>
+            {STEPS.map((step, idx) => {
+                const done    = idx < activeIdx;
+                const active  = idx === activeIdx && !cancelled;
+                const isLast  = idx === STEPS.length - 1;
+
+                const nodeColor = cancelled
+                    ? idx <= activeIdx ? '#EF4444' : Colors.border
+                    : done || active  ? Colors.primary : Colors.border;
+
+                const lineColor = cancelled
+                    ? idx < activeIdx ? '#EF4444' : Colors.border
+                    : done ? Colors.primary : Colors.border;
+
+                const labelColor = cancelled
+                    ? idx <= activeIdx ? '#EF4444' : Colors.textMuted
+                    : done || active   ? Colors.primary : Colors.textMuted;
+
+                return (
+                    <View key={step.key} style={tracker.stepRow}>
+                        {/* Node */}
+                        <View style={tracker.nodeCol}>
+                            <View style={[
+                                tracker.node,
+                                { borderColor: nodeColor },
+                                (done || active) && !cancelled && { backgroundColor: Colors.primary },
+                                cancelled && idx <= activeIdx && { borderColor: '#EF4444', backgroundColor: '#FEE2E2' },
+                            ]}>
+                                <Ionicons
+                                    name={
+                                        cancelled && idx === activeIdx
+                                            ? 'close-circle-outline'
+                                            : done && !cancelled
+                                            ? 'checkmark'
+                                            : step.icon as any
+                                    }
+                                    size={12}
+                                    color={
+                                        cancelled && idx <= activeIdx
+                                            ? '#EF4444'
+                                            : done || active
+                                            ? '#fff'
+                                            : Colors.textMuted
+                                    }
+                                />
+                            </View>
+                            {/* Connector line */}
+                            {!isLast && (
+                                <View style={[tracker.line, { backgroundColor: lineColor }]} />
+                            )}
+                        </View>
+
+                        {/* Label */}
+                        <Text
+                            style={[
+                                tracker.label,
+                                { color: labelColor },
+                                (done || active) && !cancelled && { fontWeight: '700' },
+                                cancelled && idx <= activeIdx && { color: '#EF4444', fontWeight: '600' },
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {step.label}
+                        </Text>
+                    </View>
+                );
+            })}
+
+            {/* Cancelled pill overlay */}
+            {cancelled && (
+                <View style={tracker.cancelledPill}>
+                    <Ionicons name="ban-outline" size={11} color="#EF4444" />
+                    <Text style={tracker.cancelledText}>
+                        {status === 'REJECTED' ? 'Rejected' : 'Cancelled'}
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
+}
+
+// ─── Skeleton ──────────────────────────────────────────────────────────────────
+function SkeletonBooking() {
+    return (
+        <View style={styles.card}>
+            <View style={styles.cardRow}>
+                <View style={[styles.cardThumb, { backgroundColor: '#E0EDED' }]} />
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                    <View style={styles.skelLine} />
+                    <View style={[styles.skelLine, { width: '55%', marginTop: 8 }]} />
+                    <View style={[styles.skelLine, { width: '40%', marginTop: 8 }]} />
+                </View>
+            </View>
+            {/* skeleton tracker */}
+            <View style={{ flexDirection: 'row', marginTop: 14, gap: 0 }}>
+                {[0, 1, 2, 3].map(i => (
+                    <View key={i} style={{ flex: 1, alignItems: 'center' }}>
+                        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#E0EDED' }} />
+                        <View style={{ height: 8, width: '60%', backgroundColor: '#E0EDED', borderRadius: 4, marginTop: 6 }} />
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+}
+
+// ─── Screen ────────────────────────────────────────────────────────────────────
+export default function BookingsScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchBookings = async (silent = false) => {
+    useFocusEffect(
+        useCallback(() => {
+            setStatusBarStyle('light');
+            setStatusBarBackgroundColor(Colors.bgDark, true);
+            if (Platform.OS === 'android') {
+                NavigationBar.setBackgroundColorAsync(Colors.bgDark);
+                NavigationBar.setButtonStyleAsync('light');
+            }
+        }, [])
+    );
+
+    const fetchBookings = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
             const res = await apiClient.get('/api/user/my-bookings');
             setBookings(res.data.bookings || []);
         } catch (error: any) {
             console.error('Fetch bookings error', error);
-            if (error.response?.status === 401 || error.response?.status === 404) {
+            if (error.response?.status === 401) {
                 await AsyncStorage.removeItem('userToken');
                 router.replace('/login' as any);
             }
@@ -47,128 +198,135 @@ export default function MyBookingsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
-    // Refresh on screen focus
-    // Set status bar and navigation bar when screen is focused
-    useFocusEffect(
-        useCallback(() => {
-            fetchBookings();
-            setStatusBarStyle('dark');
-            setStatusBarBackgroundColor('#FFF', true);
+    useFocusEffect(useCallback(() => { fetchBookings(); }, [fetchBookings]));
+    useAutoRefresh(() => fetchBookings(true), 10000);
 
-            if (Platform.OS === 'android') {
-                NavigationBar.setButtonStyleAsync('dark');
-            }
-        }, [])
-    );
-
-    // Poll every 5 seconds
-    useAutoRefresh(() => fetchBookings(true), 5000);
-
-    // Refresh when app comes from background
     const appState = useRef(AppState.currentState);
     useEffect(() => {
-        const sub = AppState.addEventListener('change', (nextState) => {
+        const sub = AppState.addEventListener('change', nextState => {
             if (appState.current.match(/inactive|background/) && nextState === 'active') {
                 fetchBookings(true);
             }
             appState.current = nextState;
         });
         return () => sub.remove();
-    }, []);
+    }, [fetchBookings]);
 
-    const onRefresh = async () => {
-        setRefreshing(true);
-        await fetchBookings(true);
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'APPROVED': return '#4CAF50';
-            case 'BOOKED': return '#2E7D32'; // darker green
-            case 'REJECTED': return '#F44336';
-            case 'CANCELLED': return '#9E9E9E'; // GREY
-            default: return '#FF9800'; // PENDING
-        }
-    };
-
-    const renderBooking = ({ item }: { item: Booking }) => {
+    // ─── Render booking card ───────────────────────────────────────────────────
+    const renderBooking = ({ item, index }: { item: Booking; index: number }) => {
         const rawImage = item.property.images?.[0];
-        const imageUri = rawImage
-            ? `${BACKEND_URL}/${rawImage.replace(/^\/+/, '')}`
-            : null;
-
-        if (imageUri) console.log("IMAGE URL (Booking):", imageUri);
+        const imageUri = rawImage ? `${BACKEND_URL}/${rawImage.replace(/^\/+/, '')}` : null;
+        const cancelled = isCancelled(item.status);
+        const dateStr = new Date(item.createdAt).toLocaleDateString('en-IN', {
+            day: 'numeric', month: 'short', year: 'numeric',
+        });
 
         return (
-            <View style={styles.card}>
+            <View style={[styles.card, cancelled && styles.cardCancelled]}>
+                {/* ── Property row ── */}
                 <View style={styles.cardRow}>
-                    {imageUri ? (
-                        <Image
-                            source={{ uri: imageUri }}
-                            style={styles.image}
-                            defaultSource={require('../../assets/images/icon.png')}
-                            onError={(e) => console.error("IMAGE LOAD ERROR (Booking):", e.nativeEvent.error, imageUri)}
-                        />
-                    ) : (
-                        <View style={[styles.image, styles.noImage]}>
-                            <Ionicons name="home-outline" size={24} color="#CCC" />
+                    {/* Thumbnail */}
+                    <View style={styles.cardThumb}>
+                        {imageUri ? (
+                            <Image
+                                source={{ uri: imageUri }}
+                                style={StyleSheet.absoluteFillObject}
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <View style={[StyleSheet.absoluteFillObject, styles.cardThumbFallback]}>
+                                <Ionicons name="home-outline" size={22} color={Colors.primary} />
+                            </View>
+                        )}
+                        {/* order number chip */}
+                        <View style={styles.orderChip}>
+                            <Text style={styles.orderChipText}>#{index + 1}</Text>
                         </View>
-                    )}
-
-                    <View style={styles.content}>
-                        <Text style={styles.title} numberOfLines={1}>{item.property.title}</Text>
-                        <Text style={styles.location}>{item.property.location}</Text>
-                        <Text style={styles.price}>₹ {item.property.price}/mo</Text>
-                        <Text style={styles.date}>Booked on {new Date(item.createdAt).toLocaleDateString()}</Text>
                     </View>
-                </View>
 
-                <View style={styles.footer}>
-                    <Text style={styles.statusLabel}>Status:</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>
-                        <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-                            {item.status}
+                    {/* Info */}
+                    <View style={styles.cardInfo}>
+                        <Text style={styles.cardTitle} numberOfLines={1}>
+                            {item.property.title}
                         </Text>
+                        <View style={styles.cardLocRow}>
+                            <Ionicons name="location-outline" size={11} color={Colors.textMuted} />
+                            <Text style={styles.cardLocation} numberOfLines={1}>
+                                {item.property.location}
+                            </Text>
+                        </View>
+                        <Text style={styles.cardPrice}>
+                            ₹{item.property.price.toLocaleString()}
+                            <Text style={styles.cardPriceSuffix}>/mo</Text>
+                        </Text>
+                        <Text style={styles.cardDate}>Requested {dateStr}</Text>
                     </View>
                 </View>
+
+                {/* ── Divider ── */}
+                <View style={styles.divider} />
+
+                {/* ── Amazon-style tracker ── */}
+                <BookingTracker status={item.status} />
             </View>
         );
     };
-
-    if (loading && bookings.length === 0) {
-        return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" color={GREEN} />
-            </View>
-        );
-    }
 
     return (
         <View style={styles.container}>
+            {/* ─── Status bar zone ─── */}
+            <View style={{ height: insets.top, backgroundColor: Colors.bgDark, borderBottomWidth: 1.5, borderBottomColor: Colors.primary }} />
+
+            {/* ─── Header ─── */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>My Bookings</Text>
+                <View style={styles.headerGlow} pointerEvents="none" />
+                <View style={styles.headerRow}>
+                    <View>
+                        <Text style={styles.headerTitle}>My Bookings</Text>
+                        <Text style={styles.headerSub}>
+                            {loading ? 'Loading...' : `${bookings.length} booking${bookings.length !== 1 ? 's' : ''}`}
+                        </Text>
+                    </View>
+                    <View style={styles.headerIcon}>
+                        <Ionicons name="receipt-outline" size={22} color={Colors.primary} />
+                    </View>
+                </View>
             </View>
 
-            {bookings.length === 0 ? (
-                <View style={styles.center}>
-                    <Ionicons name="calendar-outline" size={64} color="#CCC" />
-                    <Text style={styles.noData}>You haven&apos;t made any bookings yet.</Text>
+            {/* ─── List ─── */}
+            {loading ? (
+                <ScrollView contentContainerStyle={styles.listContent}>
+                    {[1, 2, 3].map(i => <SkeletonBooking key={i} />)}
+                </ScrollView>
+            ) : bookings.length === 0 ? (
+                <View style={styles.emptyBox}>
+                    <Ionicons name="calendar-outline" size={64} color={Colors.textMuted} />
+                    <Text style={styles.emptyTitle}>No bookings yet</Text>
+                    <Text style={styles.emptySub}>
+                        Browse properties and submit a booking request.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.browseBtn}
+                        onPress={() => router.push('/(main)' as any)}
+                    >
+                        <Text style={styles.browseBtnText}>Browse Properties</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <FlatList
                     data={bookings}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={item => item.id}
                     renderItem={renderBooking}
-                    contentContainerStyle={styles.list}
+                    contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={[GREEN]}
-                            tintColor={GREEN}
+                            onRefresh={() => { setRefreshing(true); fetchBookings(true); }}
+                            colors={[Colors.primary]}
+                            tintColor={Colors.primary}
                         />
                     }
                 />
@@ -177,48 +335,243 @@ export default function MyBookingsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F9FBF9' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 60,
-        paddingBottom: 20,
-        backgroundColor: '#FFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+// ─── Tracker styles ────────────────────────────────────────────────────────────
+const tracker = StyleSheet.create({
+    wrapper: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: 4,
+        paddingHorizontal: 2,
+        position: 'relative',
     },
-    headerTitle: { fontSize: 28, fontWeight: '800', color: GREEN_DARK },
-    list: { padding: 20, paddingBottom: 100 },
-    card: {
-        backgroundColor: '#FFF',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 3,
+    stepRow: {
+        flex: 1,
+        alignItems: 'center',
     },
-    cardRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
-    image: { width: 80, height: 80, borderRadius: 12, resizeMode: 'cover' },
-    noImage: { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
-    content: { flex: 1, justifyContent: 'center' },
-    title: { fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 4 },
-    location: { fontSize: 13, color: '#666', marginBottom: 6 },
-    price: { fontSize: 15, fontWeight: '800', color: GREEN, marginBottom: 4 },
-    date: { fontSize: 11, color: '#999' },
-    footer: {
+    nodeCol: {
+        alignItems: 'center',
+        width: '100%',
+        flexDirection: 'row',
+    },
+    node: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        borderWidth: 2,
+        borderColor: Colors.border,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2,
+    },
+    line: {
+        flex: 1,
+        height: 2,
+        backgroundColor: Colors.border,
+        marginTop: 0,
+    },
+    label: {
+        fontSize: 9,
+        color: Colors.textMuted,
+        marginTop: 5,
+        textAlign: 'center',
+        fontWeight: '500',
+        paddingHorizontal: 2,
+    },
+    cancelledPill: {
+        position: 'absolute',
+        right: 0,
+        top: -2,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
-        paddingTop: 12,
+        gap: 3,
+        backgroundColor: '#FEE2E2',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 99,
     },
-    statusLabel: { fontSize: 13, fontWeight: '600', color: '#555' },
-    statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-    statusText: { fontSize: 12, fontWeight: '700' },
-    noData: { marginTop: 16, color: '#999', fontSize: 16, fontWeight: '500' }
+    cancelledText: {
+        fontSize: 10,
+        color: '#EF4444',
+        fontWeight: '700',
+    },
+});
+
+// ─── Screen styles ─────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: Colors.bgScreen,
+    },
+    // Header
+    header: {
+        backgroundColor: Colors.bgDark,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.lg,
+        overflow: 'hidden',
+    },
+    headerGlow: {
+        position: 'absolute',
+        top: -50,
+        right: -50,
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: Colors.primary,
+        opacity: 0.10,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: '#fff',
+        letterSpacing: 0.3,
+    },
+    headerSub: {
+        fontSize: 13,
+        color: Colors.textMuted,
+        marginTop: 3,
+    },
+    headerIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(29,173,168,0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    // List
+    listContent: {
+        padding: Spacing.xl,
+        paddingBottom: 100,
+        gap: 16,
+    },
+    // Card
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: Radius.lg,
+        padding: 14,
+        ...Shadow.card,
+    },
+    cardCancelled: {
+        opacity: 0.82,
+        borderWidth: 1,
+        borderColor: '#FECACA',
+    },
+    cardRow: {
+        flexDirection: 'row',
+        marginBottom: 4,
+    },
+    cardThumb: {
+        width: 86,
+        height: 86,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: Colors.primaryLight,
+        position: 'relative',
+    },
+    cardThumbFallback: {
+        backgroundColor: Colors.primaryLight,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    orderChip: {
+        position: 'absolute',
+        bottom: 4,
+        left: 4,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    orderChipText: {
+        color: '#fff',
+        fontSize: 9,
+        fontWeight: '700',
+    },
+    cardInfo: {
+        flex: 1,
+        marginLeft: 14,
+    },
+    cardLocRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        marginTop: 3,
+    },
+    cardTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    cardLocation: {
+        fontSize: 11,
+        color: Colors.textMuted,
+        flex: 1,
+    },
+    cardPrice: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: Colors.primary,
+        marginTop: 6,
+    },
+    cardPriceSuffix: {
+        fontSize: 11,
+        fontWeight: '500',
+        color: Colors.textMuted,
+    },
+    cardDate: {
+        fontSize: 10,
+        color: Colors.textMuted,
+        marginTop: 4,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: Colors.border,
+        marginVertical: 12,
+    },
+    // Skeleton
+    skelLine: {
+        height: 13,
+        width: '75%',
+        backgroundColor: '#E0EDED',
+        borderRadius: 4,
+    },
+    // Empty
+    emptyBox: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 40,
+    },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        marginTop: 20,
+        marginBottom: 8,
+    },
+    emptySub: {
+        fontSize: 14,
+        color: Colors.textMuted,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    browseBtn: {
+        marginTop: 20,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 28,
+        paddingVertical: 14,
+        borderRadius: Radius.lg,
+    },
+    browseBtnText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '700',
+    },
 });

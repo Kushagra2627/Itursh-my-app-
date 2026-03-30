@@ -1,19 +1,17 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// In Expo, localhost on an emulator maps to 10.0.2.2 (Android) or 127.0.0.1 (iOS).
-// For physical devices, we must use the machine's local IP on the network.
-// Based on previous conversation, the user's IP is 192.168.29.164.
-const BASE_URL = 'http://51.20.251.206';
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://51.20.251.206';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
+    timeout: 15000,
 });
 
-// Request interceptor to attach JWT token
+// Request interceptor: attach JWT token
 apiClient.interceptors.request.use(
     async (config) => {
         try {
@@ -26,21 +24,27 @@ apiClient.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// Response interceptor for global error handling and logging
+// Response interceptor: log errors, handle 401
 apiClient.interceptors.response.use(
     (response) => response,
-    (error) => {
-        console.error('--- AXIOS ERROR ---');
-        console.error('Message:', error.message);
-        console.error('Status:', error.response?.status);
-        console.error('Data:', JSON.stringify(error.response?.data));
+    async (error) => {
+        if (error.response?.status === 401) {
+            try {
+                await AsyncStorage.removeItem('userToken');
+                // The individual screens handle navigation on 401
+            } catch (e) {
+                console.error('Error clearing token on 401:', e);
+            }
+        }
+        console.error('--- API ERROR ---');
         console.error('URL:', error.config?.url);
-        console.error('-------------------');
+        console.error('Status:', error.response?.status);
+        console.error('Message:', error.message);
+        console.error('Data:', JSON.stringify(error.response?.data));
+        console.error('-----------------');
         return Promise.reject(error);
     }
 );

@@ -1,22 +1,23 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Dimensions, FlatList, Image, TouchableOpacity, ActivityIndicator, Modal, TextInput, BackHandler, ToastAndroid, AppState, Animated, Platform } from 'react-native';
+import {
+    View, Text, StyleSheet, Dimensions, FlatList, Image,
+    TouchableOpacity, BackHandler, ToastAndroid, AppState,
+    Platform, ScrollView, RefreshControl,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import apiClient from '../../src/lib/axios';
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../../src/lib/axios';
 import { useNotifications } from '../../src/hooks/useNotifications';
+import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
+import { Colors, Shadow, Radius, Spacing, getGreeting, getInitials } from '../../src/constants/theme';
 
-const { width, height } = Dimensions.get('window');
-
-const GREEN = '#4CAF50';
-const GREEN_DARK = '#2E7D32';
-const GREEN_LIGHT = '#E8F5E9';
-
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.72;
 const BACKEND_URL = (apiClient.defaults.baseURL || '').replace('/api', '');
 
 type Property = {
@@ -29,113 +30,93 @@ type Property = {
     bathrooms: number;
     images: string[];
     isInProcess?: boolean;
+    isBooked?: boolean;
 };
 
+const PROPERTY_GRADIENTS = [
+    ['#1DADA8', '#0F6E6A'] as const,
+    ['#2E6EDB', '#1A4BA8'] as const,
+    ['#7C3AED', '#4C1D95'] as const,
+    ['#D97706', '#92400E'] as const,
+];
+
+function SkeletonCard() {
+    return (
+        <View style={[styles.featuredCard, { marginRight: 16 }]}>
+            <View style={styles.skeletonImage} />
+            <View style={styles.skeletonContent}>
+                <View style={[styles.skeletonLine, { width: '60%', height: 14 }]} />
+                <View style={[styles.skeletonLine, { width: '40%', height: 11, marginTop: 6 }]} />
+                <View style={[styles.skeletonLine, { width: '30%', height: 11, marginTop: 6 }]} />
+            </View>
+        </View>
+    );
+}
+
+function SkeletonNearbyCard() {
+    return (
+        <View style={styles.nearbyCard}>
+            <View style={[styles.skeletonImage, { width: 90, height: 90, borderRadius: 12 }]} />
+            <View style={{ flex: 1, marginLeft: 14 }}>
+                <View style={[styles.skeletonLine, { width: '70%', height: 14 }]} />
+                <View style={[styles.skeletonLine, { width: '50%', height: 11, marginTop: 6 }]} />
+                <View style={[styles.skeletonLine, { width: '35%', height: 11, marginTop: 6 }]} />
+            </View>
+        </View>
+    );
+}
+
 export default function HomeScreen() {
-
     const router = useRouter();
-
+    const insets = useSafeAreaInsets();
     const [properties, setProperties] = useState<Property[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [filterModal, setFilterModal] = useState(false);
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [showHint, setShowHint] = useState(false);
-
+    const [userInitials, setUserInitials] = useState('U');
     const { unreadCount } = useNotifications();
 
-    // Refresh spin animation
-    const spinAnim = useRef(new Animated.Value(0)).current;
+    const lastBackPressTime = useRef(0);
 
-    // Swipe hint animations
-    const hintOpacity = useRef(new Animated.Value(0)).current;
-    const hintSlide = useRef(new Animated.Value(-20)).current;
-
-    const startSpin = () => {
-        spinAnim.setValue(0);
-        Animated.timing(spinAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-        }).start();
-    };
-
-    const spin = spinAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
-    });
-
-    // Show swipe hint once per install
-    useEffect(() => {
-        AsyncStorage.getItem('swipeHintShown').then((val) => {
-            if (!val) {
-                setShowHint(true);
-                Animated.parallel([
-                    Animated.timing(hintOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-                    Animated.timing(hintSlide, { toValue: 0, duration: 500, useNativeDriver: true }),
-                ]).start();
-                setTimeout(() => {
-                    Animated.timing(hintOpacity, { toValue: 0, duration: 600, useNativeDriver: true }).start(() => {
-                        setShowHint(false);
-                    });
-                    AsyncStorage.setItem('swipeHintShown', 'true');
-                }, 3500);
-            }
-        });
-    }, []);
-
-    const [maxPrice, setMaxPrice] = useState('');
-    const [bhk, setBhk] = useState('');
-    const [location, setLocation] = useState('');
-
-    // Set status bar and navigation bar style when this tab is focused
+    // Status bar
     useFocusEffect(
         useCallback(() => {
-            setStatusBarStyle('dark');
-            setStatusBarBackgroundColor('#E8F5E9', true);
-            // Android navigation bar
+            setStatusBarStyle('light');
+            setStatusBarBackgroundColor(Colors.bgDark, true);
             if (Platform.OS === 'android') {
-                NavigationBar.setButtonStyleAsync('dark');
+                NavigationBar.setBackgroundColorAsync(Colors.bgDark);
+                NavigationBar.setButtonStyleAsync('light');
             }
         }, [])
     );
 
-    const lastBackPressTime = React.useRef(0);
-
+    // Back press handler
     useFocusEffect(
-        React.useCallback(() => {
-            const onBackPress = () => {
-                if (filterModal) {
-                    setFilterModal(false);
-                    return true;
-                }
-
+        useCallback(() => {
+            const handler = BackHandler.addEventListener('hardwareBackPress', () => {
                 const now = Date.now();
                 if (now - lastBackPressTime.current < 2000) {
                     BackHandler.exitApp();
                     return true;
                 }
                 lastBackPressTime.current = now;
-                ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+                ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
                 return true;
-            };
-
-            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
-            return () => subscription.remove();
-        }, [filterModal])
+            });
+            return () => handler.remove();
+        }, [])
     );
 
-    const fetchProperties = async (silent = false) => {
+    // Load user initials
+    useEffect(() => {
+        AsyncStorage.getItem('userName').then(name => {
+            if (name) setUserInitials(getInitials(name));
+        });
+    }, []);
+
+    const fetchProperties = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
-
         try {
-            const params = new URLSearchParams();
-            if (maxPrice) params.append('maxPrice', maxPrice);
-            if (bhk) params.append('bedrooms', bhk);
-            if (location) params.append('location', location);
-
-            const res = await apiClient.get(`/api/user/properties?${params.toString()}`);
+            const res = await apiClient.get('/api/user/properties');
             setProperties(res.data.properties || []);
         } catch (error) {
             console.error('Fetch properties error', error);
@@ -143,22 +124,11 @@ export default function HomeScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
-    const fetchPropertiesRef = useRef(fetchProperties);
-    fetchPropertiesRef.current = fetchProperties;
+    useFocusEffect(useCallback(() => { fetchProperties(); }, [fetchProperties]));
+    useAutoRefresh(() => fetchProperties(true), 10000);
 
-    // Fetch on screen focus
-    useFocusEffect(
-        React.useCallback(() => {
-            fetchPropertiesRef.current();
-        }, [])
-    );
-
-    // Poll every 5 seconds silently
-    useAutoRefresh(() => fetchProperties(true), 5000);
-
-    // Refresh when app comes back from background
     const appState = useRef(AppState.currentState);
     useEffect(() => {
         const sub = AppState.addEventListener('change', (nextState) => {
@@ -168,572 +138,636 @@ export default function HomeScreen() {
             appState.current = nextState;
         });
         return () => sub.remove();
-    }, []);
+    }, [fetchProperties]);
 
-    const onRefresh = async () => {
-        setRefreshing(true);
-        startSpin();
-        await fetchProperties(true);
-    };
+    const featuredProperties = properties.slice(0, 5);
+    const nearbyProperties = properties.slice(5);
 
-    const applyFilters = () => {
-        setFilterModal(false);
-        fetchProperties();
-    };
+    const getImageUri = (img: string) =>
+        `${BACKEND_URL}/${img.replace(/^\/+/, '')}`;
 
-    const renderCard = ({ item }: { item: Property }) => {
+    const renderFeaturedCard = ({ item, index }: { item: Property; index: number }) => {
+        const gradientColors = PROPERTY_GRADIENTS[index % PROPERTY_GRADIENTS.length];
+        const hasImage = item.images && item.images.length > 0;
+        const status = item.isBooked
+            ? 'Booked'
+            : item.isInProcess
+            ? 'In Process'
+            : 'Available';
 
         return (
+            <TouchableOpacity
+                style={styles.featuredCard}
+                activeOpacity={0.92}
+                onPress={() => router.push(`/(main)/property/${item.id}` as any)}
+            >
+                <View style={styles.featuredImageContainer}>
+                    {hasImage ? (
+                        <Image
+                            source={{ uri: getImageUri(item.images[0]) }}
+                            style={styles.featuredImage}
+                            defaultSource={require('../../assets/images/icon.png')}
+                        />
+                    ) : (
+                        <LinearGradient colors={gradientColors} style={styles.featuredImage}>
+                            <Ionicons name="home" size={40} color="rgba(255,255,255,0.5)" />
+                        </LinearGradient>
+                    )}
+                    {/* Availability Badge */}
+                    <View style={[
+                        styles.availBadge,
+                        item.isInProcess || item.isBooked
+                            ? { backgroundColor: Colors.bgDark }
+                            : { backgroundColor: Colors.primary }
+                    ]}>
+                        <Text style={styles.availBadgeText}>{status}</Text>
+                    </View>
+                    {/* Heart */}
+                    <TouchableOpacity style={styles.heartBtn}>
+                        <Ionicons name="heart-outline" size={18} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.featuredContent}>
+                    <Text style={styles.featuredTitle} numberOfLines={1}>{item.title}</Text>
+                    <View style={styles.featuredRow}>
+                        <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+                        <Text style={styles.featuredLocation} numberOfLines={1}>{item.location}</Text>
+                    </View>
+                    <Text style={styles.featuredPrice}>
+                        ₹{item.price.toLocaleString()}
+                        <Text style={styles.featuredPriceSuffix}>/mo</Text>
+                    </Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
-            <View style={styles.cardContainer}>
+    const renderNearbyCard = ({ item, index }: { item: Property; index: number }) => {
+        const gradientColors = PROPERTY_GRADIENTS[index % PROPERTY_GRADIENTS.length];
+        const hasImage = item.images && item.images.length > 0;
 
+        return (
+            <TouchableOpacity
+                style={styles.nearbyCard}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/(main)/property/${item.id}` as any)}
+            >
+                <View style={styles.nearbyThumb}>
+                    {hasImage ? (
+                        <Image
+                            source={{ uri: getImageUri(item.images[0]) }}
+                            style={StyleSheet.absoluteFillObject}
+                            resizeMode="cover"
+                            defaultSource={require('../../assets/images/icon.png')}
+                        />
+                    ) : (
+                        <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject}>
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                <Ionicons name="home" size={28} color="rgba(255,255,255,0.6)" />
+                            </View>
+                        </LinearGradient>
+                    )}
+                    {/* Status dot */}
+                    <View style={[
+                        styles.nearbyStatusDot,
+                        { backgroundColor: item.isInProcess || item.isBooked ? Colors.bgSoft : Colors.primary }
+                    ]} />
+                </View>
+                <View style={styles.nearbyContent}>
+                    <Text style={styles.nearbyTitle} numberOfLines={1}>{item.title}</Text>
+                    <View style={styles.rowGap4}>
+                        <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+                        <Text style={styles.nearbyLocation} numberOfLines={1}>{item.location}</Text>
+                    </View>
+                    <View style={[styles.rowGap4, { marginTop: 4 }]}>
+                        <View style={styles.nearbyBadge}>
+                            <Ionicons name="bed-outline" size={11} color={Colors.primaryDark} />
+                            <Text style={styles.nearbyBadgeText}>{item.bedrooms} BHK</Text>
+                        </View>
+                        <View style={styles.nearbyBadge}>
+                            <Ionicons name="water-outline" size={11} color={Colors.primaryDark} />
+                            <Text style={styles.nearbyBadgeText}>{item.bathrooms} Bath</Text>
+                        </View>
+                    </View>
+                    <Text style={styles.nearbyPrice}>₹{item.price.toLocaleString()}<Text style={styles.nearbyPriceSuffix}>/mo</Text></Text>
+                </View>
                 <TouchableOpacity
-                    style={styles.card}
-                    activeOpacity={0.9}
-                    onPress={() => router.push(`/(main)/property/${item.id}` as any)}
+                    style={styles.nearbyBookBtn}
+                    onPress={() => router.push(`/(main)/book/${item.id}` as any)}
+                    disabled={item.isInProcess || item.isBooked}
                 >
-
-                    <View style={styles.imageContainer}>
-
-                        {item.images && item.images.length > 0 ? (
-
-                            <FlatList
-                                style={{ width: '100%', height: '100%' }}
-                                data={item.images}
-                                horizontal
-                                pagingEnabled
-                                showsHorizontalScrollIndicator={false}
-                                keyExtractor={(img, index) => `${item.id}-${index}`}
-                                renderItem={({ item: img }) => (
-                                    <Image
-                                        source={{ uri: `${BACKEND_URL}/${img.replace(/^\/+/, '')}` }}
-                                        style={styles.image}
-                                        defaultSource={require('../../assets/images/icon.png')}
-                                        onLoad={() => console.log("IMAGE URL (Home Card):", `${BACKEND_URL}/${img.replace(/^\/+/, '')}`)}
-                                        onError={(e) => console.error("IMAGE LOAD ERROR (Home Card):", e.nativeEvent.error, `${BACKEND_URL}/${img.replace(/^\/+/, '')}`)}
-                                    />
-                                )}
-                            />
-
-                        ) : (
-
-                            <View style={[styles.image, styles.noImage]}>
-
-                                <Ionicons name="home-outline" size={48} color="#CCC" />
-
-                            </View>
-
-                        )}
-
-                    </View>
-
-                    <View style={styles.cardContent}>
-
-                        <View style={styles.rowBetween}>
-
-                            <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-
-                            <Text style={styles.price}>₹ {item.price}/mo</Text>
-
-                        </View>
-
-                        <View style={styles.metaRow}>
-
-                            <View style={styles.badge}>
-                                <Ionicons name="bed-outline" size={14} color={GREEN_DARK} />
-                                <Text style={styles.badgeText}>{item.bedrooms} BHK</Text>
-                            </View>
-
-                            <View style={styles.badge}>
-                                <Ionicons name="water-outline" size={14} color={GREEN_DARK} />
-                                <Text style={styles.badgeText}>{item.bathrooms} Bath</Text>
-                            </View>
-
-                            <View style={styles.badge}>
-                                <Ionicons name="location-outline" size={14} color={GREEN_DARK} />
-                                <Text style={styles.badgeText}>{item.location}</Text>
-                            </View>
-
-                        </View>
-
-                        <Text style={styles.description} numberOfLines={2}>
-                            {item.description}
-                        </Text>
-
-                        {item.isInProcess ? (
-                            <TouchableOpacity
-                                style={[styles.bookBtn, { backgroundColor: '#A0A0A0' }]}
-                                activeOpacity={1}
-                            >
-                                <Text style={styles.bookBtnText}>In Process</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity
-                                style={styles.bookBtn}
-                                onPress={() => router.push(`/(main)/book/${item.id}` as any)}
-                            >
-                                <Text style={styles.bookBtnText}>Book Now</Text>
-                            </TouchableOpacity>
-                        )}
-
-                    </View>
-
+                    <Ionicons
+                        name={item.isInProcess || item.isBooked ? 'time-outline' : 'arrow-forward'}
+                        size={18}
+                        color={item.isInProcess || item.isBooked ? Colors.textMuted : Colors.primary}
+                    />
                 </TouchableOpacity>
-
-            </View>
-
+            </TouchableOpacity>
         );
     };
-
-    if (loading && properties.length === 0) {
-
-        return (
-
-            <SafeAreaView style={styles.center}>
-
-                <ActivityIndicator size="large" color={GREEN} />
-
-            </SafeAreaView>
-
-        );
-
-    }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={[styles.container, { paddingBottom: 0 }]}>
+            {/* ─── STATUS BAR ZONE ─── */}
+            <View style={[styles.statusBarZone, { height: insets.top }]} />
+            {/* ─── HEADER ─── */}
+            <View style={styles.header}>
+                {/* Teal radial glow top-right */}
+                <View style={styles.headerGlow} pointerEvents="none" />
 
-            {/* ─── Header ─── */}
-            <LinearGradient
-                colors={['#E8F5E9', '#C8E6C9', '#A5D6A7']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.header}
-            >
-                <View>
-                    <Text style={styles.headerTitle}>Discover</Text>
-                    <Text style={styles.headerSubtitle}>Find your perfect home</Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                    <TouchableOpacity onPress={onRefresh} style={[styles.filterBtn, refreshing && { opacity: 0.5 }]} disabled={refreshing}>
-                        <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                            <Ionicons name="refresh" size={22} color={GREEN_DARK} />
-                        </Animated.View>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModal(true)}>
-                        <Ionicons name="options" size={24} color={GREEN_DARK} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                        style={styles.filterBtn} 
-                        onPress={() => router.push('/(main)/notifications' as any)}
-                    >
-                        <Ionicons name="notifications" size={24} color={GREEN_DARK} />
-                        {unreadCount > 0 && (
-                            <View style={styles.badgeDot}>
-                                <Text style={styles.badgeTextCount}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-
-                </View>
-            </LinearGradient>
-
-            {/* ─── Cards ─── */}
-            {properties.length === 0 ? (
-                <View style={styles.center}>
-                    <Ionicons name="search-outline" size={48} color="#CCC" />
-                    <Text style={styles.noData}>No properties match your filters</Text>
-                </View>
-            ) : (
-                <View style={{ flex: 1 }}>
-                    <FlatList
-                        data={properties}
-                        renderItem={renderCard}
-                        keyExtractor={(item) => item.id}
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        onMomentumScrollEnd={(e) => {
-                            const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                            setActiveIndex(index);
-                        }}
-                    />
-
-                    {/* Pagination Dots */}
-                    {properties.length > 1 && (
-                        <View style={styles.dotsContainer}>
-                            {properties.map((_, i) => (
-                                <View
-                                    key={i}
-                                    style={[
-                                        styles.dot,
-                                        i === activeIndex ? styles.dotActive : null,
-                                    ]}
-                                />
-                            ))}
-                        </View>
-                    )}
-
-                    {/* Swipe Hint Overlay */}
-                    {showHint && (
-                        <Animated.View
-                            style={[
-                                styles.swipeHint,
-                                { opacity: hintOpacity, transform: [{ translateX: hintSlide }] },
-                            ]}
-                            pointerEvents="none"
+                <View style={styles.headerRow}>
+                    {/* Logo */}
+                    <View style={styles.logoContainer}>
+                        <LinearGradient
+                            colors={[Colors.primary, Colors.primaryDark]}
+                            style={styles.logoBubble}
                         >
-                            <Ionicons name="swap-horizontal" size={18} color="#fff" />
-                            <Text style={styles.swipeHintText}>Swipe to see more properties</Text>
-                            <Ionicons name="arrow-forward" size={18} color="#fff" />
-                        </Animated.View>
-                    )}
-                </View>
-            )}
+                            <Ionicons name="home" size={18} color="#fff" />
+                        </LinearGradient>
+                        <Text style={styles.logoText}>iTURSH</Text>
+                    </View>
 
-            {/* ─── Filter Modal ─── */}
-            <Modal
-                visible={filterModal}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setFilterModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Filter Properties</Text>
-                            <TouchableOpacity onPress={() => setFilterModal(false)}>
-                                <Ionicons name="close" size={24} color="#333" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.filterLabel}>Under Price (₹/mo)</Text>
-                        <TextInput
-                            style={styles.filterInput}
-                            placeholder="Show properties under ₹..."
-                            keyboardType="numeric"
-                            value={maxPrice}
-                            onChangeText={setMaxPrice}
-                        />
-
-                        <Text style={styles.filterLabel}>Bedrooms (BHK)</Text>
-                        <TextInput
-                            style={styles.filterInput}
-                            placeholder="e.g. 2"
-                            keyboardType="numeric"
-                            value={bhk}
-                            onChangeText={setBhk}
-                        />
-
-                        <Text style={styles.filterLabel}>Location</Text>
-                        <TextInput
-                            style={styles.filterInput}
-                            placeholder="e.g. Mumbai"
-                            value={location}
-                            onChangeText={setLocation}
-                        />
-
-                        <TouchableOpacity style={styles.applyBtn} onPress={applyFilters}>
-                            <Text style={styles.applyBtnText}>Apply Filters</Text>
+                    {/* Right actions */}
+                    <View style={styles.headerActions}>
+                        {/* Bell */}
+                        <TouchableOpacity
+                            style={styles.headerIconBtn}
+                            onPress={() => router.push('/(main)/notifications' as any)}
+                        >
+                            <Ionicons name="notifications-outline" size={22} color="#fff" />
+                            {unreadCount > 0 && (
+                                <View style={styles.notifBadge}>
+                                    <Text style={styles.notifBadgeText}>
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
 
+                        {/* Avatar */}
                         <TouchableOpacity
-                            style={styles.clearBtn}
-                            onPress={() => {
-                                setMaxPrice('');
-                                setBhk('');
-                                setLocation('');
-                                setFilterModal(false);
-                                // Need to refetch without filters
-                                setTimeout(() => fetchProperties(), 100);
-                            }}
+                            onPress={() => router.push('/(main)/profile' as any)}
                         >
-                            <Text style={styles.clearBtnText}>Clear Filters</Text>
+                            <LinearGradient
+                                colors={[Colors.primary, Colors.primaryDark]}
+                                style={styles.avatarCircle}
+                            >
+                                <Text style={styles.avatarText}>{userInitials}</Text>
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
                 </View>
-            </Modal>
 
-        </SafeAreaView>
+                {/* Greeting */}
+                <View style={styles.greetingContainer}>
+                    <Text style={styles.greetingText}>{getGreeting()} 👋</Text>
+                    <Text style={styles.greetingTitle}>Find Your Home</Text>
+                    <Text style={styles.greetingSubtitle}>
+                        {loading ? 'Loading...' : `${properties.length} properties available`}
+                    </Text>
+                </View>
+            </View>
 
+            {/* ─── BODY ─── */}
+            <ScrollView
+                style={styles.body}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 24 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={() => { setRefreshing(true); fetchProperties(true); }}
+                        colors={[Colors.primary]}
+                        tintColor={Colors.primary}
+                    />
+                }
+            >
+                {/* Featured */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Featured Properties</Text>
+                    <TouchableOpacity onPress={() => router.push('/(main)/explore' as any)}>
+                        <Text style={styles.sectionSeeAll}>See all</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {loading ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredList}>
+                        {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+                    </ScrollView>
+                ) : featuredProperties.length === 0 ? (
+                    <View style={styles.emptyBox}>
+                        <Ionicons name="home-outline" size={36} color={Colors.textMuted} />
+                        <Text style={styles.emptyText}>No properties found</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={featuredProperties}
+                        renderItem={renderFeaturedCard}
+                        keyExtractor={item => item.id}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.featuredList}
+                        ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                        scrollEventThrottle={16}
+                    />
+                )}
+
+                {/* Nearby */}
+                {nearbyProperties.length > 0 && (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>More Properties</Text>
+                        </View>
+
+                        {loading ? (
+                            [1, 2, 3].map(i => <SkeletonNearbyCard key={i} />)
+                        ) : (
+                            nearbyProperties.map((item, index) => (
+                                <View key={item.id} style={{ paddingHorizontal: Spacing.xl }}>
+                                    {renderNearbyCard({ item, index })}
+                                </View>
+                            ))
+                        )}
+                    </>
+                )}
+
+                {!loading && properties.length === 0 && (
+                    <View style={styles.emptyFull}>
+                        <Ionicons name="search-outline" size={52} color={Colors.textMuted} />
+                        <Text style={styles.emptyTitle}>No Properties Found</Text>
+                        <Text style={styles.emptySubtitle}>Try a different filter</Text>
+                    </View>
+                )}
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-
     container: {
         flex: 1,
-        backgroundColor: '#F9FBF9'
+        backgroundColor: Colors.bgScreen,
     },
-
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center'
+    statusBarZone: {
+        backgroundColor: Colors.bgDark,
+        borderBottomWidth: 1.5,
+        borderBottomColor: Colors.primary,
     },
-
+    // ─── HEADER ───
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 20,
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20,
-        shadowColor: '#4CAF50',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.18,
-        shadowRadius: 8,
-        elevation: 6,
-    },
-
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: GREEN_DARK
-    },
-
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#666',
-        marginTop: 4
-    },
-
-    filterBtn: {
-        backgroundColor: GREEN_LIGHT,
-        padding: 12,
-        borderRadius: 12
-    },
-
-    cardContainer: {
-        width: width,
-        alignItems: 'center',
-        paddingVertical: 12,
-    },
-
-    card: {
-        width: width * 0.9,
-        backgroundColor: '#FFF',
-        borderRadius: 24,
+        backgroundColor: Colors.bgDark,
+        paddingBottom: 0,
         overflow: 'hidden',
-        elevation: 10,
-        marginBottom: 20,
     },
-
-    imageContainer: {
-        width: '100%',
-        height: 250,
-        backgroundColor: '#F0F0F0',
+    headerGlow: {
+        position: 'absolute',
+        top: -40,
+        right: -40,
+        width: 160,
+        height: 160,
+        borderRadius: 80,
+        backgroundColor: Colors.primary,
+        opacity: 0.12,
     },
-
-    image: {
-        width: width * 0.9,
-        height: 250, // Absolute height ensures it renders properly inside the FlatList
-        resizeMode: 'cover'
-    },
-
-    noImage: {
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-
-    cardContent: {
-        padding: 20
-    },
-
-    rowBetween: {
+    headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
     },
-
-    title: {
-        fontSize: 22,
-        fontWeight: '700',
-        color: '#111'
+    logoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
-
-    price: {
+    logoBubble: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    logoText: {
         fontSize: 20,
         fontWeight: '800',
-        color: GREEN
+        color: '#fff',
+        letterSpacing: 1.5,
     },
-
-    metaRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 12,
-        flexWrap: 'wrap'
-    },
-
-    badge: {
+    headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: GREEN_LIGHT,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8
+        gap: 12,
     },
-
-    badgeText: {
-        fontSize: 12,
-        color: GREEN_DARK,
-        marginLeft: 4
-    },
-
-    description: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 20
-    },
-
-    bookBtn: {
-        backgroundColor: GREEN,
-        paddingVertical: 16,
-        borderRadius: 16,
-        alignItems: 'center'
-    },
-
-    bookBtnText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: '700'
-    },
-
-    noData: {
-        fontSize: 16,
-        color: '#888',
-        marginTop: 16,
-        textAlign: 'center'
-    },
-
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end'
-    },
-    modalContent: {
-        backgroundColor: '#FFF',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 24,
-        minHeight: 400
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#111'
-    },
-    filterLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#444',
-        marginBottom: 8
-    },
-    filterInput: {
-        backgroundColor: '#F5F5F5',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        fontSize: 16,
-        marginBottom: 16,
-        color: '#111'
-    },
-    applyBtn: {
-        backgroundColor: GREEN,
-        borderRadius: 12,
-        paddingVertical: 14,
-        alignItems: 'center',
-        marginTop: 8
-    },
-    applyBtnText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: '700'
-    },
-    clearBtn: {
-        borderRadius: 12,
-        paddingVertical: 14,
-        alignItems: 'center',
-        marginTop: 8
-    },
-    clearBtnText: {
-        color: '#888',
-        fontSize: 16,
-        fontWeight: '600'
-    },
-
-    dotsContainer: {
-        flexDirection: 'row',
+    headerIconBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.1)',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 10,
-        gap: 6,
     },
-
-    dot: {
-        width: 7,
-        height: 7,
-        borderRadius: 4,
-        backgroundColor: '#C8E6C9',
-    },
-
-    dotActive: {
-        width: 20,
-        backgroundColor: GREEN,
-    },
-
-    swipeHint: {
+    notifBadge: {
         position: 'absolute',
-        bottom: 60,
-        alignSelf: 'center',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: 'rgba(46,125,50,0.88)',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 30,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-
-    swipeHintText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-
-    badgeDot: {
-        position: 'absolute',
-        top: -4,
-        right: -4,
-        backgroundColor: '#FF3B30',
-        minWidth: 18,
-        height: 18,
+        top: -2,
+        right: -2,
+        backgroundColor: Colors.accentBlue,
+        minWidth: 17,
+        height: 17,
         borderRadius: 9,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 3,
         borderWidth: 1.5,
-        borderColor: '#E8F5E9',
+        borderColor: Colors.bgDark,
     },
-    badgeTextCount: {
-        color: '#FFF',
-        fontSize: 10,
+    notifBadgeText: {
+        color: '#fff',
+        fontSize: 9,
         fontWeight: '800',
     },
-
+    avatarCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    greetingContainer: {
+        paddingHorizontal: Spacing.xl,
+        paddingBottom: Spacing.md,
+    },
+    greetingText: {
+        fontSize: 14,
+        color: Colors.primaryMid,
+        fontWeight: '500',
+        marginBottom: 2,
+    },
+    greetingTitle: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: '#fff',
+        letterSpacing: 0.3,
+    },
+    greetingSubtitle: {
+        fontSize: 13,
+        color: Colors.textMuted,
+        marginTop: 3,
+    },
+    chipsContainer: {
+        paddingHorizontal: Spacing.xl,
+        paddingBottom: Spacing.lg,
+        paddingTop: 4,
+        gap: 8,
+    },
+    chip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: Radius.pill,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    chipActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+    },
+    chipText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.textMuted,
+    },
+    chipTextActive: {
+        color: '#fff',
+    },
+    // ─── BODY ───
+    body: {
+        flex: 1,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xl,
+        paddingBottom: Spacing.md,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        letterSpacing: 0.2,
+    },
+    sectionSeeAll: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.primary,
+    },
+    featuredList: {
+        paddingLeft: Spacing.xl,
+        paddingRight: Spacing.md,
+    },
+    // ─── FEATURED CARD ───
+    featuredCard: {
+        width: CARD_WIDTH,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
+        overflow: 'hidden',
+        ...Shadow.card,
+    },
+    featuredImageContainer: {
+        width: '100%',
+        height: 160,
+        position: 'relative',
+        backgroundColor: Colors.primaryLight,
+    },
+    featuredImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    availBadge: {
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: Radius.pill,
+    },
+    availBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.3,
+    },
+    heartBtn: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    featuredContent: {
+        padding: 14,
+    },
+    featuredTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    featuredRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        marginBottom: 6,
+    },
+    featuredLocation: {
+        fontSize: 12,
+        color: Colors.textMuted,
+        flex: 1,
+    },
+    featuredPrice: {
+        fontSize: 17,
+        fontWeight: '800',
+        color: Colors.primary,
+    },
+    featuredPriceSuffix: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: Colors.textMuted,
+    },
+    // ─── NEARBY CARD ───
+    nearbyCard: {
+        flexDirection: 'row',
+        backgroundColor: Colors.white,
+        borderRadius: Radius.lg,
+        padding: 14,
+        marginBottom: 12,
+        alignItems: 'center',
+        ...Shadow.card,
+    },
+    nearbyThumb: {
+        width: 90,
+        height: 90,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: Colors.primaryLight,
+        position: 'relative',
+    },
+    nearbyStatusDot: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        borderWidth: 1.5,
+        borderColor: '#fff',
+    },
+    nearbyContent: {
+        flex: 1,
+        marginLeft: 14,
+    },
+    rowGap4: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    nearbyTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    nearbyLocation: {
+        fontSize: 12,
+        color: Colors.textMuted,
+        flex: 1,
+    },
+    nearbyBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        backgroundColor: Colors.primaryLight,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: Radius.pill,
+    },
+    nearbyBadgeText: {
+        fontSize: 10,
+        color: Colors.primaryDark,
+        fontWeight: '600',
+    },
+    nearbyPrice: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.primary,
+        marginTop: 6,
+    },
+    nearbyPriceSuffix: {
+        fontSize: 11,
+        fontWeight: '500',
+        color: Colors.textMuted,
+    },
+    nearbyBookBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: Colors.primaryLight,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 8,
+    },
+    // ─── SKELETON ───
+    skeletonImage: {
+        width: '100%',
+        height: 160,
+        backgroundColor: '#E0EDED',
+    },
+    skeletonContent: {
+        padding: 14,
+    },
+    skeletonLine: {
+        backgroundColor: '#E0EDED',
+        borderRadius: 4,
+    },
+    // ─── EMPTY ───
+    emptyBox: {
+        alignItems: 'center',
+        paddingVertical: 24,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: Colors.textMuted,
+        marginTop: 8,
+    },
+    emptyFull: {
+        alignItems: 'center',
+        paddingVertical: 60,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        marginTop: 16,
+    },
+    emptySubtitle: {
+        fontSize: 14,
+        color: Colors.textMuted,
+        marginTop: 4,
+    },
 });
