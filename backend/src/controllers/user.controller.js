@@ -305,6 +305,12 @@ const savePushToken = async (req, res) => {
             return res.status(400).json({ error: 'Push token is required' });
         }
 
+        // Check the user exists first
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found. Please log in again.' });
+        }
+
         await prisma.user.update({
             where: { id: userId },
             data: { pushToken },
