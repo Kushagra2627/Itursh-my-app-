@@ -3,32 +3,47 @@ import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Platform } from 'react-native';
+import * as ExpoSplashScreen from 'expo-splash-screen';
+import { Platform, View } from 'react-native';
+import SplashScreenAnimated from '../components/SplashScreenAnimated';
+
+// Prevent the native splash from auto-hiding — we control it manually
+ExpoSplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+    const [showCustomSplash, setShowCustomSplash] = useState(true);
+    const [appReady, setAppReady] = useState(false);
 
     useEffect(() => {
-        checkToken();
-        if (Platform.OS === 'android') {
-            NavigationBar.setBackgroundColorAsync('#1A1A2E');
-            NavigationBar.setButtonStyleAsync('light');
-        }
+        prepare();
     }, []);
 
-    const checkToken = async () => {
+    const prepare = async () => {
         try {
+            // Check auth token
             const token = await AsyncStorage.getItem('userToken');
             setIsAuthenticated(!!token);
+
+            // Set up navigation bar
+            if (Platform.OS === 'android') {
+                NavigationBar.setBackgroundColorAsync('#1A1A2E');
+                NavigationBar.setButtonStyleAsync('light');
+            }
         } catch {
             setIsAuthenticated(false);
+        } finally {
+            // Hide native splash and mark app ready
+            await ExpoSplashScreen.hideAsync();
+            setAppReady(true);
         }
     };
 
-    if (isAuthenticated === null) return null;
+    // Don't render anything until app is ready (fonts loaded, auth checked)
+    if (!appReady || isAuthenticated === null) return null;
 
     return (
-        <>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
             <StatusBar style="light" backgroundColor="#1A1A2E" translucent={false} />
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
@@ -36,6 +51,11 @@ export default function RootLayout() {
                 <Stack.Screen name="signup" />
                 <Stack.Screen name="(main)" />
             </Stack>
-        </>
+
+            {/* Show our custom animated splash as an overlay on top of the app */}
+            {showCustomSplash && (
+                <SplashScreenAnimated onFinish={() => setShowCustomSplash(false)} />
+            )}
+        </View>
     );
 }

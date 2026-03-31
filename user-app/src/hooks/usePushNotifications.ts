@@ -16,6 +16,13 @@ Notifications.setNotificationHandler({
 });
 
 async function registerForPushNotificationsAsync(): Promise<string | undefined> {
+    // Push notifications are not supported in Expo Go SDK 53+.
+    // They require a development build (npx expo run:android / run:ios).
+    const isExpoGo = Constants?.appOwnership === 'expo';
+    if (isExpoGo) {
+        console.log('Push notifications are not supported in Expo Go. Use a development build.');
+        return undefined;
+    }
     if (Platform.OS === 'android') {
         Notifications.setNotificationChannelAsync('default', {
             name: 'default',

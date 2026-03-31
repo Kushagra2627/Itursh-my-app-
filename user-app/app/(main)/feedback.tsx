@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvo
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-const GREEN = '#4CAF50';
+const TEAL = '#1DADA8';
 
 export default function FeedbackScreen() {
     const router = useRouter();
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
     textInput: {
-        backgroundColor: '#F9FBF9',
+        backgroundColor: '#F5FAFA',
         borderWidth: 1,
         borderColor: '#E0E0E0',
         borderRadius: 12,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     submitBtn: {
-        backgroundColor: GREEN,
+        backgroundColor: TEAL,
         borderRadius: 12,
         paddingVertical: 16,
         alignItems: 'center',

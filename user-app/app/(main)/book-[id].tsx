@@ -5,9 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../src/lib/axios';
 
-const GREEN = '#4CAF50';
-const GREEN_DARK = '#2E7D32';
-const GREEN_LIGHT = '#E8F5E9';
+const TEAL = '#1DADA8';
+const TEAL_DARK = '#0F6E6A';
+const TEAL_LIGHT = '#E1F7F6';
 
 export default function BookPropertyScreen() {
     const router = useRouter();
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF',
         borderRadius: 20,
         padding: 24,
-        shadowColor: GREEN_DARK,
+        shadowColor: TEAL_DARK,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.06,
         shadowRadius: 16,
@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
     },
     multiline: { minHeight: 80, textAlignVertical: 'top' },
     btn: {
-        backgroundColor: GREEN,
+        backgroundColor: TEAL,
         borderRadius: 16,
         paddingVertical: 16,
         alignItems: 'center',
         marginTop: 16,
-        shadowColor: GREEN,
+        shadowColor: TEAL,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

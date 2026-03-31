@@ -84,20 +84,22 @@ export default function ProfileScreen() {
         ]);
     };
 
-    const handleCall = () => {
+    const handleCall = async () => {
         const url = `tel:${SUPPORT_PHONE}`;
-        Linking.canOpenURL(url).then(ok => {
-            if (ok) Linking.openURL(url);
-            else Alert.alert('Error', 'Calling not supported on this device');
-        });
+        try {
+            await Linking.openURL(url);
+        } catch (error) {
+            Alert.alert('Error', 'Calling not supported on this device');
+        }
     };
 
-    const handleWhatsApp = () => {
-        const url = `whatsapp://send?phone=91${SUPPORT_PHONE}&text=Hello, I need help!`;
-        Linking.canOpenURL(url).then(ok => {
-            if (ok) Linking.openURL(url);
-            else Alert.alert('Error', 'WhatsApp is not installed');
-        });
+    const handleWhatsApp = async () => {
+        const url = `https://wa.me/91${SUPPORT_PHONE}?text=Hello, I need help!`;
+        try {
+            await Linking.openURL(url);
+        } catch (error) {
+            Alert.alert('Error', 'Could not open WhatsApp');
+        }
     };
 
     if (loading && !profile) {

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import apiClient from '../src/lib/axios';
 
-const GREEN = '#4CAF50';
-const GREEN_DARK = '#2E7D32';
-const GREEN_LIGHT = '#E8F5E9';
+const TEAL = '#1DADA8';
+const TEAL_DARK = '#0F6E6A';
+const TEAL_LIGHT = '#E1F7F6';
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -45,8 +46,19 @@ export default function SignupScreen() {
         >
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.card}>
+                    {/* ── Logo */}
                     <View style={styles.headerContainer}>
-                        <Text style={styles.logoText}>Itursh</Text>
+                        <View style={styles.logoRow}>
+                            {/* "i" with teal dot */}
+                            <View style={styles.iWrapper}>
+                                <Text style={styles.logoI}>i</Text>
+                                <LinearGradient
+                                    colors={['#5ECECA', '#1DADA8']}
+                                    style={styles.iDot}
+                                />
+                            </View>
+                            <Text style={styles.logoRest}>TURSH</Text>
+                        </View>
                         <Text style={styles.subtitle}>Create an account</Text>
                     </View>
 
@@ -55,7 +67,7 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="John Doe"
-                            placeholderTextColor="#A5D6A7"
+                            placeholderTextColor="#80CECC"
                             value={name}
                             onChangeText={setName}
                         />
@@ -66,7 +78,7 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="you@example.com"
-                            placeholderTextColor="#A5D6A7"
+                            placeholderTextColor="#80CECC"
                             autoCapitalize="none"
                             keyboardType="email-address"
                             value={email}
@@ -79,7 +91,7 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="9876543210"
-                            placeholderTextColor="#A5D6A7"
+                            placeholderTextColor="#80CECC"
                             keyboardType="phone-pad"
                             value={phone}
                             onChangeText={setPhone}
@@ -91,7 +103,7 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="••••••••"
-                            placeholderTextColor="#A5D6A7"
+                            placeholderTextColor="#80CECC"
                             secureTextEntry
                             value={password}
                             onChangeText={setPassword}
@@ -126,7 +138,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9FBF9',
+        backgroundColor: '#F5FAFA',
     },
     scrollContent: {
         flexGrow: 1,
@@ -138,7 +150,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         padding: 24,
         paddingVertical: 32,
-        shadowColor: GREEN_DARK,
+        shadowColor: TEAL_DARK,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.08,
         shadowRadius: 20,
@@ -148,12 +160,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 32,
     },
-    logoText: {
+    logoRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        marginBottom: 8,
+    },
+    iWrapper: {
+        alignItems: 'center',
+        marginRight: 1,
+    },
+    logoI: {
         fontSize: 36,
         fontWeight: '800',
-        color: GREEN,
+        color: '#1A1A2E',
         letterSpacing: -0.5,
-        marginBottom: 8,
+        lineHeight: 40,
+    },
+    iDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        position: 'absolute',
+        top: 2,
+    },
+    logoRest: {
+        fontSize: 36,
+        fontWeight: '800',
+        color: '#1A1A2E',
+        letterSpacing: -0.5,
+        lineHeight: 40,
     },
     subtitle: {
         fontSize: 16,
@@ -171,9 +206,9 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     input: {
-        backgroundColor: GREEN_LIGHT,
+        backgroundColor: TEAL_LIGHT,
         borderWidth: 1,
-        borderColor: '#C8E6C9',
+        borderColor: '#B2E8E6',
         borderRadius: 16,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -181,12 +216,12 @@ const styles = StyleSheet.create({
         color: '#333',
     },
     btn: {
-        backgroundColor: GREEN,
+        backgroundColor: TEAL,
         borderRadius: 16,
         paddingVertical: 16,
         alignItems: 'center',
         marginTop: 16,
-        shadowColor: GREEN,
+        shadowColor: TEAL,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -211,7 +246,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     linkText: {
-        color: GREEN,
+        color: TEAL,
         fontSize: 14,
         fontWeight: '700',
     },

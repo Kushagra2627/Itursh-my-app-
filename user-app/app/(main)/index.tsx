@@ -107,11 +107,13 @@ export default function HomeScreen() {
     );
 
     // Load user initials
-    useEffect(() => {
-        AsyncStorage.getItem('userName').then(name => {
-            if (name) setUserInitials(getInitials(name));
-        });
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            AsyncStorage.getItem('userName').then(name => {
+                if (name) setUserInitials(getInitials(name));
+            });
+        }, [])
+    );
 
     const fetchProperties = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);

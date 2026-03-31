@@ -30,12 +30,7 @@ type Property = {
     createdAt?: string;
 };
 
-const FILTER_CHIPS = [
-    { id: 'All',     label: 'All',     icon: 'apps-outline' },
-    { id: 'Budget',  label: 'Budget',  icon: 'wallet-outline' },
-    { id: '2+ BHK',  label: '2+ BHK',  icon: 'bed-outline' },
-    { id: 'New',     label: 'New',     icon: 'sparkles-outline' },
-];
+
 
 const PROPERTY_GRADIENTS: [string, string][] = [
     ['#1DADA8', '#0F6E6A'],
@@ -140,8 +135,7 @@ export default function ExploreScreen() {
     const [properties, setProperties] = useState<Property[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [viewMode, setViewMode] = useState<'map' | 'grid'>('map');
-    const [activeFilter, setActiveFilter] = useState('All');
+
     const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
 
     const scrollRef = React.useRef<ScrollView>(null);
@@ -174,51 +168,12 @@ export default function ExploreScreen() {
     useFocusEffect(useCallback(() => { fetchProperties(); }, [fetchProperties]));
     useAutoRefresh(() => fetchProperties(true), 15000);
 
-    // ─── Client-side filters ───────────────────────────────────────────────────
-    const applyFilter = (props: Property[]): Property[] => {
-        let result = [...props];
 
-        // Location filter (selected by tapping area)
-        if (selectedLocation) {
-            result = result.filter(p =>
-                p.location?.trim().toLowerCase() === selectedLocation.toLowerCase()
-            );
-        }
-
-        // Chip filter
-        switch (activeFilter) {
-            case 'Budget':
-                // Properties ≤ ₹10,000/month
-                result = result.filter(p => p.price <= 10000);
-                break;
-            case '2+ BHK':
-                // Properties with 2 or more bedrooms
-                result = result.filter(p => p.bedrooms >= 2);
-                break;
-            case 'New':
-                // 5 most recently added properties (by createdAt, newest first)
-                result = result
-                    .slice()
-                    .sort((a, b) => {
-                        if (!a.createdAt || !b.createdAt) return 0;
-                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                    })
-                    .slice(0, 8);
-                break;
-            default:
-                break;
-        }
-
-        return result;
-    };
-
-    const filtered = applyFilter(properties);
     const locationGroups = getLocationGroups(properties);
 
     const handleLocationTap = (location: string) => {
         const next = selectedLocation?.toLowerCase() === location.toLowerCase() ? null : location;
         setSelectedLocation(next);
-        setViewMode('grid');
         if (next) {
             const yOffset = locationSectionRefs.current[location.toLowerCase()];
             if (yOffset !== undefined) {
@@ -230,51 +185,6 @@ export default function ExploreScreen() {
     const getImageUri = (img: string) => `${BACKEND_URL}/${img.replace(/^\/+/, '')}`;
 
     // ─── Card renderers ───────────────────────────────────────────────────────
-    const renderGridCard = ({ item, index }: { item: Property; index: number }) => {
-        const colors = PROPERTY_GRADIENTS[index % PROPERTY_GRADIENTS.length];
-        const hasImage = item.images?.length > 0;
-        const status = item.isBooked ? 'Booked' : item.isInProcess ? 'In Process' : 'Available';
-
-        return (
-            <TouchableOpacity
-                style={styles.gridCard}
-                activeOpacity={0.9}
-                onPress={() => router.push(`/(main)/property/${item.id}` as any)}
-            >
-                <View style={styles.gridImage}>
-                    {hasImage ? (
-                        <Image source={{ uri: getImageUri(item.images[0]) }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                    ) : (
-                        <LinearGradient colors={colors} style={StyleSheet.absoluteFillObject}>
-                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                <Ionicons name="home" size={28} color="rgba(255,255,255,0.5)" />
-                            </View>
-                        </LinearGradient>
-                    )}
-                    <View style={[styles.gridBadge, { backgroundColor: item.isInProcess || item.isBooked ? Colors.bgDark : Colors.primary }]}>
-                        <Text style={styles.gridBadgeText}>{status}</Text>
-                    </View>
-                </View>
-                <View style={styles.gridContent}>
-                    <Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                        <Ionicons name="location-outline" size={11} color={Colors.textMuted} />
-                        <Text style={styles.gridLocation} numberOfLines={1}>{item.location}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                        <View style={styles.bhkBadge}>
-                            <Ionicons name="bed-outline" size={10} color={Colors.primaryDark} />
-                            <Text style={styles.bhkText}>{item.bedrooms} BHK</Text>
-                        </View>
-                        <Text style={styles.gridPrice}>
-                            ₹{item.price.toLocaleString('en-IN')}
-                            <Text style={{ fontSize: 10, color: Colors.textMuted, fontWeight: '400' }}>/mo</Text>
-                        </Text>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        );
-    };
 
     const renderHorizCard = ({ item, index }: { item: Property; index: number }) => {
         const colors = PROPERTY_GRADIENTS[index % PROPERTY_GRADIENTS.length];
@@ -332,45 +242,12 @@ export default function ExploreScreen() {
                                 : 'Browse all properties'}
                         </Text>
                     </View>
-                    {/* Map / Grid toggle */}
-                    <View style={styles.togglePill}>
-                        <TouchableOpacity
-                            style={[styles.toggleBtn, viewMode === 'map' && styles.toggleBtnActive]}
-                            onPress={() => setViewMode('map')}
-                        >
-                            <Ionicons name="map-outline" size={15} color={viewMode === 'map' ? '#fff' : Colors.textMuted} />
-                            <Text style={[styles.toggleLabel, viewMode === 'map' && { color: '#fff' }]}>Map</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]}
-                            onPress={() => setViewMode('grid')}
-                        >
-                            <Ionicons name="grid-outline" size={15} color={viewMode === 'grid' ? '#fff' : Colors.textMuted} />
-                            <Text style={[styles.toggleLabel, viewMode === 'grid' && { color: '#fff' }]}>Grid</Text>
-                        </TouchableOpacity>
-                    </View>
+
                 </View>
 
-                {/* Filter chips */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                    {FILTER_CHIPS.map(chip => (
-                        <TouchableOpacity
-                            key={chip.id}
-                            style={[styles.chip, activeFilter === chip.id && styles.chipActive]}
-                            onPress={() => setActiveFilter(chip.id)}
-                        >
-                            <Ionicons
-                                name={chip.icon as any}
-                                size={13}
-                                color={activeFilter === chip.id ? '#fff' : Colors.textMuted}
-                            />
-                            <Text style={[styles.chipText, activeFilter === chip.id && styles.chipTextActive]}>
-                                {chip.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                    {/* Active location chip */}
-                    {selectedLocation && (
+                {/* Active location chip */}
+                {selectedLocation && (
+                    <View style={styles.filterRow}>
                         <TouchableOpacity
                             style={[styles.chip, styles.chipLocationActive]}
                             onPress={() => setSelectedLocation(null)}
@@ -379,8 +256,8 @@ export default function ExploreScreen() {
                             <Text style={styles.chipTextActive}>{selectedLocation}</Text>
                             <Ionicons name="close-circle" size={13} color="rgba(255,255,255,0.8)" />
                         </TouchableOpacity>
-                    )}
-                </ScrollView>
+                    </View>
+                )}
             </View>
 
             <ScrollView
@@ -397,70 +274,35 @@ export default function ExploreScreen() {
                 }
             >
                 {/* ── Map View */}
-                {viewMode === 'map' && (
-                    <View style={styles.mapSection}>
-                        <View style={styles.mapContainer}>
-                            <CityMapBackground />
-                            {/* Dynamic location bubbles from actual data */}
-                            {locationGroups.slice(0, MAP_POSITIONS.length).map((location, index) => {
-                                const pos = MAP_POSITIONS[index];
-                                const count = propertiesForLocation(properties, location).length;
-                                return (
-                                    <LocationBubble
-                                        key={location}
-                                        location={location}
-                                        count={count}
-                                        selected={selectedLocation?.toLowerCase() === location.toLowerCase()}
-                                        onPress={() => handleLocationTap(location)}
-                                        index={index}
-                                        style={{ position: 'absolute', top: pos.top, left: pos.left }}
-                                    />
-                                );
-                            })}
-                            {locationGroups.length === 0 && !loading && (
-                                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>No areas to display yet</Text>
-                                </View>
-                            )}
-                        </View>
-                        <Text style={styles.mapHint}>Tap a location bubble to see its properties</Text>
-                    </View>
-                )}
-
-                {/* ── Grid View */}
-                {viewMode === 'grid' && (
-                    <View style={styles.gridSection}>
-                        {/* Result count with active context */}
-                        <View style={styles.resultRow}>
-                            <Text style={styles.resultCount}>
-                                {filtered.length} {filtered.length === 1 ? 'property' : 'properties'} found
-                            </Text>
-                            {activeFilter !== 'All' && (
-                                <View style={styles.filterBadge}>
-                                    <Text style={styles.filterBadgeText}>{activeFilter}</Text>
-                                </View>
-                            )}
-                        </View>
-                        {loading ? (
-                            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                                <Text style={{ color: Colors.textMuted }}>Loading properties...</Text>
-                            </View>
-                        ) : filtered.length === 0 ? (
-                            <View style={styles.emptyBox}>
-                                <Ionicons name="search-outline" size={44} color={Colors.textMuted} />
-                                <Text style={styles.emptyText}>No properties match this filter</Text>
-                            </View>
-                        ) : (
-                            <View style={styles.gridContainer}>
-                                {filtered.map((item, index) => (
-                                    <View key={item.id} style={{ width: (width - Spacing.xl * 2 - 12) / 2 }}>
-                                        {renderGridCard({ item, index })}
-                                    </View>
-                                ))}
+                <View style={styles.mapSection}>
+                    <View style={styles.mapContainer}>
+                        <CityMapBackground />
+                        {/* Dynamic location bubbles from actual data */}
+                        {locationGroups.slice(0, MAP_POSITIONS.length).map((location, index) => {
+                            const pos = MAP_POSITIONS[index];
+                            const count = propertiesForLocation(properties, location).length;
+                            return (
+                                <LocationBubble
+                                    key={location}
+                                    location={location}
+                                    count={count}
+                                    selected={selectedLocation?.toLowerCase() === location.toLowerCase()}
+                                    onPress={() => handleLocationTap(location)}
+                                    index={index}
+                                    style={{ position: 'absolute', top: pos.top, left: pos.left }}
+                                />
+                            );
+                        })}
+                        {locationGroups.length === 0 && !loading && (
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>No areas to display yet</Text>
                             </View>
                         )}
                     </View>
-                )}
+                    <Text style={styles.mapHint}>Tap a location bubble to see its properties</Text>
+                </View>
+
+
 
                 {/* ── Browse by Location — always shown */}
                 {locationGroups.length > 0 && (
@@ -521,7 +363,6 @@ export default function ExploreScreen() {
                                 <TouchableOpacity
                                     onPress={() => {
                                         setSelectedLocation(location);
-                                        setViewMode('grid');
                                     }}
                                 >
                                     <Text style={styles.seeAll}>See all</Text>

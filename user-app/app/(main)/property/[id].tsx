@@ -9,9 +9,9 @@ import { useAutoRefresh } from '../../../src/hooks/useAutoRefresh';
 
 const { width } = Dimensions.get('window');
 
-const GREEN = '#4CAF50';
-const GREEN_DARK = '#2E7D32';
-const GREEN_LIGHT = '#E8F5E9';
+const TEAL = '#1DADA8';
+const TEAL_DARK = '#0F6E6A';
+const TEAL_LIGHT = '#E1F7F6';
 
 const BACKEND_URL = (apiClient.defaults.baseURL || '').replace('/api', '');
 
@@ -70,7 +70,7 @@ export default function PropertyDetailScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color={GREEN} />
+                <ActivityIndicator size="large" color={TEAL} />
             </View>
         );
     }
@@ -80,7 +80,7 @@ export default function PropertyDetailScreen() {
             <View style={styles.center}>
                 <Text>Property not found</Text>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-                    <Text style={{ color: GREEN }}>Go Back</Text>
+                    <Text style={{ color: TEAL }}>Go Back</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -161,18 +161,18 @@ export default function PropertyDetailScreen() {
                     </View>
 
                     <View style={styles.locationContainer}>
-                        <Ionicons name="location" size={18} color={GREEN} />
+                        <Ionicons name="location" size={18} color={TEAL} />
                         <Text style={styles.locationText}>{property.location}</Text>
                     </View>
 
                     {/* Features Badges */}
                     <View style={styles.featuresRow}>
                         <View style={styles.featureBadge}>
-                            <Ionicons name="bed" size={20} color={GREEN_DARK} />
+                            <Ionicons name="bed" size={20} color={TEAL_DARK} />
                             <Text style={styles.featureText}>{property.bedrooms} Bedrooms</Text>
                         </View>
                         <View style={styles.featureBadge}>
-                            <Ionicons name="water" size={20} color={GREEN_DARK} />
+                            <Ionicons name="water" size={20} color={TEAL_DARK} />
                             <Text style={styles.featureText}>{property.bathrooms} Bathrooms</Text>
                         </View>
                     </View>
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     price: {
         fontSize: 24,
         fontWeight: '800',
-        color: GREEN,
+        color: TEAL,
         flexShrink: 0
     },
     priceMonth: {
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     featureBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: GREEN_LIGHT,
+        backgroundColor: TEAL_LIGHT,
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 16,
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         fontSize: 14,
         fontWeight: '700',
-        color: GREEN_DARK
+        color: TEAL_DARK
     },
     sectionContainer: {
         marginBottom: 24
@@ -396,11 +396,11 @@ const styles = StyleSheet.create({
         fontWeight: '500'
     },
     bookBtn: {
-        backgroundColor: GREEN,
+        backgroundColor: TEAL,
         paddingHorizontal: 32,
         paddingVertical: 16,
         borderRadius: 16,
-        shadowColor: GREEN,
+        shadowColor: TEAL,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

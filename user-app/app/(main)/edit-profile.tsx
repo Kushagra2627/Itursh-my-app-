@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../src/lib/axios';
 
-const GREEN = '#4CAF50';
+const TEAL = '#1DADA8';
 
 export default function EditProfileScreen() {
     const router = useRouter();
@@ -67,7 +67,7 @@ export default function EditProfileScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color={GREEN} />
+                <ActivityIndicator size="large" color={TEAL} />
             </View>
         );
     }
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#F9FBF9',
+        backgroundColor: '#F5FAFA',
         borderWidth: 1,
         borderColor: '#E0E0E0',
         borderRadius: 12,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
         color: '#111',
     },
     saveBtn: {
-        backgroundColor: GREEN,
+        backgroundColor: TEAL,
         borderRadius: 12,
         paddingVertical: 16,
         alignItems: 'center',
