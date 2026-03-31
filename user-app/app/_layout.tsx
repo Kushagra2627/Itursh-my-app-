@@ -5,10 +5,13 @@ import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { Platform, View } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SplashScreenAnimated from '../components/SplashScreenAnimated';
 
 // Prevent the native splash from auto-hiding — we control it manually
 ExpoSplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -43,19 +46,21 @@ export default function RootLayout() {
     if (!appReady || isAuthenticated === null) return null;
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-            <StatusBar style="light" backgroundColor="#1A1A2E" translucent={false} />
-            <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="login" />
-                <Stack.Screen name="signup" />
-                <Stack.Screen name="(main)" />
-            </Stack>
+        <QueryClientProvider client={queryClient}>
+            <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+                <StatusBar style="light" backgroundColor="#1A1A2E" translucent={false} />
+                <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="login" />
+                    <Stack.Screen name="signup" />
+                    <Stack.Screen name="(main)" />
+                </Stack>
 
-            {/* Show our custom animated splash as an overlay on top of the app */}
-            {showCustomSplash && (
-                <SplashScreenAnimated onFinish={() => setShowCustomSplash(false)} />
-            )}
-        </View>
+                {/* Show our custom animated splash as an overlay on top of the app */}
+                {showCustomSplash && (
+                    <SplashScreenAnimated onFinish={() => setShowCustomSplash(false)} />
+                )}
+            </View>
+        </QueryClientProvider>
     );
 }

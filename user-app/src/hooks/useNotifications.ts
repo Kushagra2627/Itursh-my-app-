@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../lib/axios';
-import { useFocusEffect } from 'expo-router';
 
 export type Notification = {
     id: string;
@@ -12,54 +11,49 @@ export type Notification = {
 };
 
 export const useNotifications = () => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
 
-    const fetchNotifications = useCallback(async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
+    const { data: notifications = [], isLoading: loading, refetch } = useQuery({
+        queryKey: ['notifications'],
+        queryFn: async () => {
             const res = await apiClient.get('/api/user/notifications');
-            const data = res.data.notifications || [];
-            setNotifications(data);
-            setUnreadCount(data.filter((n: Notification) => !n.isRead).length);
-        } catch (error) {
-            console.error('Fetch notifications error:', error);
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    }, []);
+            return res.data.notifications as Notification[] || [];
+        },
+        staleTime: 30 * 1000,
+    });
 
-    const markAsRead = async (id: string) => {
-        try {
-            // Optimistic update
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
-            
+    const unreadCount = notifications.filter((n: Notification) => !n.isRead).length;
+
+    const { mutate: markAsRead } = useMutation({
+        mutationFn: async (id: string) => {
             await apiClient.patch(`/api/user/notifications/${id}/read`);
-        } catch (error) {
-            console.error('Mark as read error:', error);
-            // Revert on error if needed, but for notifications it's usually fine
+        },
+        onMutate: async (id: string) => {
+            await queryClient.cancelQueries({ queryKey: ['notifications'] });
+            const previousNotifs = queryClient.getQueryData<Notification[]>(['notifications']);
+            
+            if (previousNotifs) {
+                queryClient.setQueryData<Notification[]>(['notifications'], (old: Notification[] | undefined) => 
+                    old ? old.map((n: Notification) => n.id === id ? { ...n, isRead: true } : n) : []
+                );
+            }
+            return { previousNotifs };
+        },
+        onError: (err: any, id: string, context: any) => {
+            if (context?.previousNotifs) {
+                queryClient.setQueryData(['notifications'], context.previousNotifs);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         }
-    };
-
-    // Initial fetch
-    useEffect(() => {
-        fetchNotifications();
-    }, [fetchNotifications]);
-
-    // Refresh on focus
-    useFocusEffect(
-        useCallback(() => {
-            fetchNotifications(true);
-        }, [fetchNotifications])
-    );
+    });
 
     return {
         notifications,
         unreadCount,
         loading,
-        refresh: fetchNotifications,
+        refresh: refetch,
         markAsRead
     };
 };

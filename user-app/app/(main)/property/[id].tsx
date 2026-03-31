@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ImageViewing from 'react-native-image-viewing';
 import apiClient from '../../../src/lib/axios';
 import { useAutoRefresh } from '../../../src/hooks/useAutoRefresh';
+import { useNotifications } from '../../../src/hooks/useNotifications';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +35,7 @@ export default function PropertyDetailScreen() {
 
     const [property, setProperty] = useState<Property | null>(null);
     const [loading, setLoading] = useState(true);
+    const { unreadCount } = useNotifications();
 
     // Image Viewer state
     const [isViewerVisible, setIsViewerVisible] = useState(false);
@@ -151,6 +153,21 @@ export default function PropertyDetailScreen() {
                     >
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
+
+                    {/* Notification Button Floating on top of the image */}
+                    <TouchableOpacity
+                        style={[styles.notifFloatingBtn, { top: insets.top + 16 }]}
+                        onPress={() => router.push('/(main)/notifications' as any)}
+                    >
+                        <Ionicons name="notifications-outline" size={22} color="#FFF" />
+                        {unreadCount > 0 && (
+                            <View style={styles.notifDot}>
+                                <Text style={styles.notifDotText}>
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
                 </View>
 
                 {/* ─── Property Details ─── */}
@@ -258,6 +275,36 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backdropFilter: 'blur(10px)'
+    },
+    notifFloatingBtn: {
+        position: 'absolute',
+        right: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backdropFilter: 'blur(10px)'
+    },
+    notifDot: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#EF4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: '#111',
+    },
+    notifDotText: {
+        color: '#fff',
+        fontSize: 9,
+        fontWeight: 'bold',
     },
     paginationContainer: {
         position: 'absolute',

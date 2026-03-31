@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useNotifications } from '../../src/hooks/useNotifications';
 
 const TEAL = '#1DADA8';
 
 export default function FeedbackScreen() {
     const router = useRouter();
+    const { unreadCount } = useNotifications();
     const [feedback, setFeedback] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -39,7 +41,14 @@ export default function FeedbackScreen() {
                             <Ionicons name="arrow-back" size={24} color="#333" />
                         </TouchableOpacity>
                         <Text style={styles.title}>Feedback</Text>
-                        <View style={{ width: 24 }} />
+                        <TouchableOpacity onPress={() => router.push('/(main)/notifications' as any)} style={styles.backBtn}>
+                            <Ionicons name="notifications-outline" size={24} color="#333" />
+                            {unreadCount > 0 && (
+                                <View style={styles.notifBadge}>
+                                    <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
                     </View>
 
                     <View style={styles.content}>
@@ -98,6 +107,25 @@ const styles = StyleSheet.create({
     },
     backBtn: {
         padding: 4,
+    },
+    notifBadge: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        backgroundColor: '#EF4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: '#FFF',
+    },
+    notifBadgeText: {
+        color: '#fff',
+        fontSize: 9,
+        fontWeight: 'bold',
     },
     content: {
         padding: 24,

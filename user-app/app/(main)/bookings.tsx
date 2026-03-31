@@ -11,6 +11,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../src/lib/axios';
 import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Colors, Shadow, Radius, Spacing } from '../../src/constants/theme';
 
 const BACKEND_URL = (apiClient.defaults.baseURL || '').replace('/api', '');
@@ -168,9 +169,7 @@ function SkeletonBooking() {
 export default function BookingsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const [bookings, setBookings] = useState<Booking[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const queryClient = useQueryClient();
 
     useFocusEffect(
         useCallback(() => {
@@ -183,36 +182,24 @@ export default function BookingsScreen() {
         }, [])
     );
 
-    const fetchBookings = useCallback(async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
+    const { data: bookings = [], isLoading: loading, refetch, isRefetching } = useQuery({
+        queryKey: ['bookings'],
+        queryFn: async () => {
             const res = await apiClient.get('/api/user/my-bookings');
-            setBookings(res.data.bookings || []);
-        } catch (error: any) {
-            console.error('Fetch bookings error', error);
+            return res.data.bookings as Booking[] || [];
+        },
+        staleTime: 1 * 60 * 1000,
+        retry: (failureCount, error: any) => {
             if (error.response?.status === 401) {
-                await AsyncStorage.removeItem('userToken');
-                router.replace('/login' as any);
+                AsyncStorage.removeItem('userToken').then(() => {
+                    queryClient.clear();
+                    router.replace('/login' as any);
+                });
+                return false;
             }
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
+            return failureCount < 3;
         }
-    }, []);
-
-    useFocusEffect(useCallback(() => { fetchBookings(); }, [fetchBookings]));
-    useAutoRefresh(() => fetchBookings(true), 10000);
-
-    const appState = useRef(AppState.currentState);
-    useEffect(() => {
-        const sub = AppState.addEventListener('change', nextState => {
-            if (appState.current.match(/inactive|background/) && nextState === 'active') {
-                fetchBookings(true);
-            }
-            appState.current = nextState;
-        });
-        return () => sub.remove();
-    }, [fetchBookings]);
+    });
 
     // ─── Render booking card ───────────────────────────────────────────────────
     const renderBooking = ({ item, index }: { item: Booking; index: number }) => {
@@ -323,8 +310,8 @@ export default function BookingsScreen() {
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={() => { setRefreshing(true); fetchBookings(true); }}
+                            refreshing={isRefetching}
+                            onRefresh={refetch}
                             colors={[Colors.primary]}
                             tintColor={Colors.primary}
                         />

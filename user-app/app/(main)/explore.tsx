@@ -10,7 +10,7 @@ import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar'
 import * as NavigationBar from 'expo-navigation-bar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import apiClient from '../../src/lib/axios';
-import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
+import { useQuery } from '@tanstack/react-query';
 import { Colors, Shadow, Radius, Spacing } from '../../src/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -132,9 +132,7 @@ export default function ExploreScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [properties, setProperties] = useState<Property[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+
 
     const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
 
@@ -152,21 +150,14 @@ export default function ExploreScreen() {
         }, [])
     );
 
-    const fetchProperties = useCallback(async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
+    const { data: properties = [], isLoading: loading, refetch, isRefetching } = useQuery({
+        queryKey: ['properties'],
+        queryFn: async () => {
             const res = await apiClient.get('/api/user/properties');
-            setProperties(res.data.properties || []);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
-
-    useFocusEffect(useCallback(() => { fetchProperties(); }, [fetchProperties]));
-    useAutoRefresh(() => fetchProperties(true), 15000);
+            return res.data.properties as Property[] || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
 
     const locationGroups = getLocationGroups(properties);
@@ -266,8 +257,8 @@ export default function ExploreScreen() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={() => { setRefreshing(true); fetchProperties(true); }}
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
                         tintColor={Colors.primary}
                         colors={[Colors.primary]}
                     />

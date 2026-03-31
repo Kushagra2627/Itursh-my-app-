@@ -13,7 +13,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../src/lib/axios';
 import { useNotifications } from '../../src/hooks/useNotifications';
-import { useAutoRefresh } from '../../src/hooks/useAutoRefresh';
+import { useQuery } from '@tanstack/react-query';
 import { Colors, Shadow, Radius, Spacing, getGreeting, getInitials } from '../../src/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -69,9 +69,7 @@ function SkeletonNearbyCard() {
 export default function HomeScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const [properties, setProperties] = useState<Property[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+
     const [userInitials, setUserInitials] = useState('U');
     const { unreadCount } = useNotifications();
 
@@ -115,32 +113,14 @@ export default function HomeScreen() {
         }, [])
     );
 
-    const fetchProperties = useCallback(async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
+    const { data: properties = [], isLoading: loading, refetch, isRefetching } = useQuery({
+        queryKey: ['properties'],
+        queryFn: async () => {
             const res = await apiClient.get('/api/user/properties');
-            setProperties(res.data.properties || []);
-        } catch (error) {
-            console.error('Fetch properties error', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
-
-    useFocusEffect(useCallback(() => { fetchProperties(); }, [fetchProperties]));
-    useAutoRefresh(() => fetchProperties(true), 10000);
-
-    const appState = useRef(AppState.currentState);
-    useEffect(() => {
-        const sub = AppState.addEventListener('change', (nextState) => {
-            if (appState.current.match(/inactive|background/) && nextState === 'active') {
-                fetchProperties(true);
-            }
-            appState.current = nextState;
-        });
-        return () => sub.remove();
-    }, [fetchProperties]);
+            return res.data.properties as Property[] || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     const featuredProperties = properties.slice(0, 5);
     const nearbyProperties = properties.slice(5);
@@ -184,10 +164,7 @@ export default function HomeScreen() {
                     ]}>
                         <Text style={styles.availBadgeText}>{status}</Text>
                     </View>
-                    {/* Heart */}
-                    <TouchableOpacity style={styles.heartBtn}>
-                        <Ionicons name="heart-outline" size={18} color="#fff" />
-                    </TouchableOpacity>
+
                 </View>
                 <View style={styles.featuredContent}>
                     <Text style={styles.featuredTitle} numberOfLines={1}>{item.title}</Text>
@@ -322,8 +299,7 @@ export default function HomeScreen() {
 
                 {/* Greeting */}
                 <View style={styles.greetingContainer}>
-                    <Text style={styles.greetingText}>{getGreeting()} 👋</Text>
-                    <Text style={styles.greetingTitle}>Find Your Home</Text>
+                    <Text style={styles.greetingTitle}>Find Your Next Home 🏡✨</Text>
                     <Text style={styles.greetingSubtitle}>
                         {loading ? 'Loading...' : `${properties.length} properties available`}
                     </Text>
@@ -337,8 +313,8 @@ export default function HomeScreen() {
                 contentContainerStyle={{ paddingBottom: 24 }}
                 refreshControl={
                     <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={() => { setRefreshing(true); fetchProperties(true); }}
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
                         colors={[Colors.primary]}
                         tintColor={Colors.primary}
                     />

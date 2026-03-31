@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,13 +27,32 @@ type UserProfile = {
 export default function ProfileScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const { unreadCount } = useNotifications();
+
+    const { data: profile, isLoading: loading } = useQuery({
+        queryKey: ['profile'],
+        queryFn: async () => {
+            const res = await apiClient.get('/api/user/profile');
+            const user = res.data.user;
+            if (user?.name) await AsyncStorage.setItem('userName', user.name);
+            return user as UserProfile;
+        },
+        staleTime: 10 * 60 * 1000,
+        retry: (failureCount, error: any) => {
+            if (error.response?.status === 401) {
+                AsyncStorage.removeItem('userToken').then(() => {
+                    queryClient.clear();
+                    router.replace('/login' as any);
+                });
+                return false;
+            }
+            return failureCount < 3;
+        }
+    });
 
     useFocusEffect(
         useCallback(() => {
-            fetchProfile();
             setStatusBarStyle('light');
             setStatusBarBackgroundColor(Colors.bgDark, true);
             if (Platform.OS === 'android') {
@@ -53,22 +72,7 @@ export default function ProfileScreen() {
         }, [])
     );
 
-    const fetchProfile = async () => {
-        try {
-            setLoading(true);
-            const res = await apiClient.get('/api/user/profile');
-            const user = res.data.user;
-            setProfile(user);
-            if (user?.name) await AsyncStorage.setItem('userName', user.name);
-        } catch (error: any) {
-            if (error.response?.status === 401) {
-                await AsyncStorage.removeItem('userToken');
-                router.replace('/login' as any);
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
     const handleLogout = () => {
         Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -78,6 +82,7 @@ export default function ProfileScreen() {
                 style: 'destructive',
                 onPress: async () => {
                     await AsyncStorage.multiRemove(['userToken', 'userName']);
+                    queryClient.clear();
                     router.replace('/login' as any);
                 },
             },
