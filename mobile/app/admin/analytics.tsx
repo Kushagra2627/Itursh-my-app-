@@ -22,6 +22,14 @@ type Analytics = {
     totalUsers: number;
 };
 
+type User = {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    createdAt: string;
+};
+
 type StatCard = {
     icon: string;
     label: string;
@@ -76,6 +84,7 @@ const STAT_CARDS: StatCard[] = [
 
 export default function Analytics() {
     const [data, setData] = useState<Analytics | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -83,6 +92,7 @@ export default function Analytics() {
         try {
             const res = await apiClient.get('/api/admin/analytics');
             setData(res.data.analytics);
+            setUsers(res.data.users || []);
         } catch (err: any) {
             Alert.alert('Error', err.message || 'Failed to fetch analytics.');
         } finally {
@@ -145,6 +155,27 @@ export default function Analytics() {
                 <Text style={styles.occupancyDetail}>
                     {data?.bookedProperties ?? 0} of {data?.totalProperties ?? 0} properties occupied
                 </Text>
+            </View>
+
+            {/* Recent Users */}
+            <View style={styles.usersCard}>
+                <Text style={styles.usersTitle}>Recent Users</Text>
+                {users.length === 0 ? (
+                    <Text style={styles.noUsersText}>No users found.</Text>
+                ) : (
+                    users.map(user => (
+                        <View key={user.id} style={styles.userRow}>
+                            <View style={styles.userInfo}>
+                                <Text style={styles.userName}>{user.name}</Text>
+                                <Text style={styles.userEmail}>{user.email}</Text>
+                                {user.phone && <Text style={styles.userPhone}>{user.phone}</Text>}
+                            </View>
+                            <Text style={styles.userDate}>
+                                {new Date(user.createdAt).toLocaleDateString()}
+                            </Text>
+                        </View>
+                    ))
+                )}
             </View>
 
             {/* Refresh */}
@@ -242,4 +273,34 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     refreshText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    
+    usersCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        shadowColor: VIOLET,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    usersTitle: { fontSize: 16, fontWeight: '700', color: VIOLET_DARK, marginBottom: 14 },
+    noUsersText: { fontSize: 14, color: '#888', fontStyle: 'italic' },
+    userRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0E6FF',
+    },
+    userInfo: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    userName: { fontSize: 15, fontWeight: '600', color: '#333' },
+    userEmail: { fontSize: 13, color: '#666', marginTop: 2 },
+    userPhone: { fontSize: 13, color: '#666', marginTop: 2 },
+    userDate: { fontSize: 12, color: '#AAA' },
 });
