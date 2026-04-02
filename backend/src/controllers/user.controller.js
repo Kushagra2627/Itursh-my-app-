@@ -299,6 +299,7 @@ const markNotificationAsRead = async (req, res) => {
 const savePushToken = async (req, res) => {
     try {
         const userId = req.user.id;
+        console.log('🔍 userId from token:', userId, '| type:', typeof userId); // 👈 ADD HERE
         const { pushToken } = req.body;
 
         if (!pushToken) {

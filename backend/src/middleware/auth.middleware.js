@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const verifyAdminToken = (req, res, next) => {
+const verifyUserToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -12,15 +12,22 @@ const verifyAdminToken = (req, res, next) => {
     try {
         const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-        if (payload.role !== 'admin') {
+        // ✅ Make sure role is 'user'
+        if (payload.role !== 'user') {
             return res.status(401).json({ error: 'Unauthorized: Insufficient role' });
         }
 
-        req.admin = payload;
+        // ✅ Explicitly set req.user with id
+        req.user = {
+            id: payload.id,       // make sure this matches what was signed in JWT
+            email: payload.email,
+            role: payload.role,
+        };
+
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
     }
 };
 
-module.exports = { verifyAdminToken };
+module.exports = { verifyUserToken };
