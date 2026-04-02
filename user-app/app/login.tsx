@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingVi
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../src/lib/axios';
 
 const TEAL = '#1DADA8';
@@ -13,6 +14,7 @@ export default function LoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
@@ -74,14 +76,22 @@ export default function LoginScreen() {
 
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Password</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="••••••••"
-                        placeholderTextColor="#80CECC"
-                        secureTextEntry
-                        value={password}
-                        onChangeText={setPassword}
-                    />
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={[styles.input, styles.passwordInput]}
+                            placeholder="••••••••"
+                            placeholderTextColor="#80CECC"
+                            secureTextEntry={!showPassword}
+                            value={password}
+                            onChangeText={setPassword}
+                        />
+                        <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+                            <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#1DADA8" />
+                        </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity style={styles.forgotBtn} onPress={() => Alert.alert('Forgot Password', 'Password recovery coming soon.')}>
+                        <Text style={styles.forgotText}>Forgot Password?</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
@@ -184,6 +194,31 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         fontSize: 16,
         color: '#333',
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: TEAL_LIGHT,
+        borderWidth: 1,
+        borderColor: '#B2E8E6',
+        borderRadius: 16,
+    },
+    passwordInput: {
+        flex: 1,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
+    },
+    eyeIcon: {
+        padding: 14,
+    },
+    forgotBtn: {
+        alignSelf: 'flex-end',
+        marginTop: 8,
+    },
+    forgotText: {
+        color: TEAL,
+        fontSize: 13,
+        fontWeight: '600',
     },
     loginBtn: {
         backgroundColor: TEAL,

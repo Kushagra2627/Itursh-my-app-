@@ -134,7 +134,7 @@ export default function NotificationsScreen() {
                     refreshControl={
                         <RefreshControl
                             refreshing={loading}
-                            onRefresh={() => refresh(true)}
+                            onRefresh={() => refresh()}
                             colors={[Colors.primary]}
                             tintColor={Colors.primary}
                         />

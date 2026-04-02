@@ -19,6 +19,7 @@ type Analytics = {
     availableProperties: number;
     bookedProperties: number;
     totalBookings: number;
+    totalUsers: number;
 };
 
 type StatCard = {
@@ -31,6 +32,14 @@ type StatCard = {
 };
 
 const STAT_CARDS: StatCard[] = [
+    {
+        icon: '👥',
+        label: 'Total Users',
+        key: 'totalUsers',
+        bg: '#FCE4EC',
+        iconBg: '#C2185B',
+        textColor: '#880E4F',
+    },
     {
         icon: '🏘️',
         label: 'Total Properties',
