@@ -426,17 +426,24 @@ const cancelBooking = async (req, res) => {
 
 // ─── GET /api/admin/analytics ─────────────────────────────────────────────────
 const getAnalytics = async (req, res) => {
+    console.log('--- ADMIN ANALYTICS REQUEST RECEIVED ---');
     try {
-        const [totalProperties, bookedProperties, totalBookings, totalUsers, users] = await Promise.all([
+        console.log('Querying counts...');
+        const [totalProperties, bookedProperties, totalBookings, totalUsers] = await Promise.all([
             prisma.property.count(),
             prisma.property.count({ where: { isBooked: true } }),
             prisma.booking.count(),
             prisma.user.count(),
-            prisma.user.findMany({
-                orderBy: { createdAt: 'desc' },
-                select: { id: true, name: true, email: true, phone: true, createdAt: true },
-            }),
         ]);
+        console.log('Counts fetched successfully.');
+
+        console.log('Querying top 10 users...');
+        const users = await prisma.user.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: { id: true, name: true, email: true, phone: true, createdAt: true },
+        });
+        console.log(`Fetched ${users.length} users.`);
 
         const availableProperties = totalProperties - bookedProperties;
 
@@ -451,8 +458,9 @@ const getAnalytics = async (req, res) => {
             users,
         });
     } catch (error) {
-        console.error('Analytics error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error('--- ANALYTICS ERROR ---');
+        console.error('Error details:', error);
+        return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 };
 
