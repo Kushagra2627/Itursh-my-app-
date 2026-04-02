@@ -427,10 +427,11 @@ const cancelBooking = async (req, res) => {
 // ─── GET /api/admin/analytics ─────────────────────────────────────────────────
 const getAnalytics = async (req, res) => {
     try {
-        const [totalProperties, bookedProperties, totalBookings] = await Promise.all([
+        const [totalProperties, bookedProperties, totalBookings, totalUsers] = await Promise.all([
             prisma.property.count(),
             prisma.property.count({ where: { isBooked: true } }),
             prisma.booking.count(),
+            prisma.user.count(),
         ]);
 
         const availableProperties = totalProperties - bookedProperties;
@@ -441,6 +442,7 @@ const getAnalytics = async (req, res) => {
                 availableProperties,
                 bookedProperties,
                 totalBookings,
+                totalUsers,
             },
         });
     } catch (error) {
