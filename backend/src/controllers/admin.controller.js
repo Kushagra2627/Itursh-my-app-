@@ -427,11 +427,15 @@ const cancelBooking = async (req, res) => {
 // ─── GET /api/admin/analytics ─────────────────────────────────────────────────
 const getAnalytics = async (req, res) => {
     try {
-        const [totalProperties, bookedProperties, totalBookings, totalUsers] = await Promise.all([
+        const [totalProperties, bookedProperties, totalBookings, totalUsers, users] = await Promise.all([
             prisma.property.count(),
             prisma.property.count({ where: { isBooked: true } }),
             prisma.booking.count(),
             prisma.user.count(),
+            prisma.user.findMany({
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, name: true, email: true, phone: true, createdAt: true },
+            }),
         ]);
 
         const availableProperties = totalProperties - bookedProperties;
@@ -444,6 +448,7 @@ const getAnalytics = async (req, res) => {
                 totalBookings,
                 totalUsers,
             },
+            users,
         });
     } catch (error) {
         console.error('Analytics error:', error);
