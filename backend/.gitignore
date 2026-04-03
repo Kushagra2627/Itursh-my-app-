@@ -23,3 +23,10 @@ public/uploads/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Firebase Secrets
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!package-lock.json

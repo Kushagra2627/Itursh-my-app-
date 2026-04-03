@@ -41,3 +41,12 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Firebase config
+google-services.json
+GoogleService-Info.plist
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!app.json

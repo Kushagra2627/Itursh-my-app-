@@ -18,7 +18,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.kushagra2627.userapp"
+      "package": "com.kushagra2627.userapp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static"
