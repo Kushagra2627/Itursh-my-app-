@@ -76,7 +76,14 @@ export default function LoginScreen() {
                 });
             }
         } catch (error: any) {
-            Alert.alert('Verification Failed', 'Invalid OTP or network error. Please try again.');
+            console.error('Login Verification Error:', error);
+            if (error.code?.startsWith('auth/')) {
+                Alert.alert('Verification Failed', 'Invalid OTP code. Please check and try again.');
+            } else if (error.request) {
+                Alert.alert('Network Error', 'Cannot reach the backend server. Is it running?');
+            } else {
+                Alert.alert('Error', error.message || 'Something went wrong');
+            }
         } finally {
             setLoading(false);
         }
@@ -91,6 +98,7 @@ export default function LoginScreen() {
                 ref={recaptchaVerifier}
                 firebaseConfig={auth.app.options}
                 attemptInvisibleVerification={true}
+                appVerificationDisabledForTesting={true}
             />
 
             <View style={styles.card}>

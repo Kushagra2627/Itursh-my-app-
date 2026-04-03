@@ -16,7 +16,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
 if (!serviceAccount) {
   try {
     // Note: Using the exact filename you placed in the backend folder
-    serviceAccount = require(path.join(__dirname, '../../itursh-1baed-firebase-adminsdk-fbsvc-65dfcdcefc.json'));
+    serviceAccount = require(path.join(__dirname, '../../itursh-1baed-firebase-adminsdk-fbsvc-e3092ceb4d.json'));
   } catch (e) {
     console.error("Firebase Service Account file not found. Make sure to set FIREBASE_SERVICE_ACCOUNT in your .env");
   }

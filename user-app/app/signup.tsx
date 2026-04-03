@@ -75,7 +75,14 @@ export default function SignupScreen() {
                 router.replace('/(main)');
             }
         } catch (error: any) {
-            Alert.alert('Verification Failed', 'Invalid OTP or network error. Please try again.');
+            console.error('Signup Verification Error:', error);
+            if (error.code?.startsWith('auth/')) {
+                Alert.alert('Verification Failed', 'Invalid OTP code. Please check and try again.');
+            } else if (error.request) {
+                Alert.alert('Network Error', 'Cannot reach the backend server. Is it running?');
+            } else {
+                Alert.alert('Error', error.message || 'Something went wrong');
+            }
         } finally {
             setLoading(false);
         }
@@ -90,6 +97,7 @@ export default function SignupScreen() {
                 ref={recaptchaVerifier}
                 firebaseConfig={auth.app.options}
                 attemptInvisibleVerification={true}
+                appVerificationDisabledForTesting={true}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
