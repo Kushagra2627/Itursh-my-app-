@@ -89,6 +89,7 @@ export default function SignupScreen() {
             <FirebaseRecaptchaVerifierModal
                 ref={recaptchaVerifier}
                 firebaseConfig={auth.app.options}
+                attemptInvisibleVerification={true}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

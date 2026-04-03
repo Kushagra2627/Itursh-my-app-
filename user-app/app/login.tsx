@@ -90,6 +90,7 @@ export default function LoginScreen() {
             <FirebaseRecaptchaVerifierModal
                 ref={recaptchaVerifier}
                 firebaseConfig={auth.app.options}
+                attemptInvisibleVerification={true}
             />
 
             <View style={styles.card}>
