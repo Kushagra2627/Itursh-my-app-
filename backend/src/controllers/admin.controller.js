@@ -172,9 +172,13 @@ const deleteProperty = async (req, res) => {
             return res.status(404).json({ error: 'Property not found' });
         }
 
-        await prisma.property.delete({ where: { id } });
+        // Use transaction to ensure both deletions happen together
+        await prisma.$transaction([
+            prisma.booking.deleteMany({ where: { propertyId: id } }),
+            prisma.property.delete({ where: { id } }),
+        ]);
 
-        return res.status(200).json({ message: 'Property deleted successfully' });
+        return res.status(200).json({ message: 'Property and its bookings deleted successfully' });
     } catch (error) {
         console.error('Delete property error:', error);
         return res.status(500).json({ error: 'Internal server error' });
