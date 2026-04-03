@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 // For Android emulator use: 10.0.2.2
 // For iOS simulator use: localhost
 // For physical device use your machine's LAN IP (e.g. 192.168.1.7)
-const BASE_URL = 'http://51.20.251.206';
+const BASE_URL = 'http://13.127.164.104';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
