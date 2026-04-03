@@ -388,14 +388,17 @@ const getSoldProperties = async (req, res) => {
             },
         });
 
-        const soldProperties = bookings.map((b) => ({
-            id: b.property.id,
-            title: b.property.title,
-            location: b.property.location,
-            price: b.property.price,
-            images: b.property.images,
-            soldAt: b.updatedAt,
-        }));
+        // Safe mapping: Skip any booking where the property record is missing
+        const soldProperties = bookings
+            .filter((b) => b.property)
+            .map((b) => ({
+                id: b.property.id,
+                title: b.property.title,
+                location: b.property.location,
+                price: b.property.price,
+                images: b.property.images,
+                soldAt: b.updatedAt,
+            }));
 
         return res.status(200).json({ soldProperties });
     } catch (error) {
