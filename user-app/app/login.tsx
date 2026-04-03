@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../src/lib/axios';
+import { auth } from '../src/lib/firebaseConfig';
+import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 
 const TEAL = '#1DADA8';
 const TEAL_DARK = '#0F6E6A';
@@ -12,28 +15,68 @@ const TEAL_LIGHT = '#E1F7F6';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+    const recaptchaVerifier = useRef(null);
+    const [phoneNumber, setPhoneNumber] = useState('+91');
+    const [verificationId, setVerificationId] = useState('');
+    const [verificationCode, setVerificationCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [step, setStep] = useState(1); // 1: Phone, 2: OTP
 
-    const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please enter email and password');
+    const handleSendOTP = async () => {
+        if (!phoneNumber || phoneNumber.length < 10) {
+            Alert.alert('Error', 'Please enter a valid phone number with country code (e.g. +91...)');
             return;
         }
 
         setLoading(true);
         try {
-            const res = await apiClient.post('/api/user/login', { email, password });
+            const phoneProvider = new PhoneAuthProvider(auth);
+            const verId = await phoneProvider.verifyPhoneNumber(
+                phoneNumber,
+                recaptchaVerifier.current!
+            );
+            setVerificationId(verId);
+            setStep(2);
+            Alert.alert('OTP Sent', 'An OTP has been sent to your phone number.');
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to send OTP');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOTP = async () => {
+        if (!verificationCode || verificationCode.length < 6) {
+            Alert.alert('Error', 'Please enter the 6-digit OTP code');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const credential = PhoneAuthProvider.credential(
+                verificationId,
+                verificationCode
+            );
+            const userCredential = await signInWithCredential(auth, credential);
+            const idToken = await userCredential.user.getIdToken();
+
+            // Send token to backend
+            const res = await apiClient.post('/api/user/firebase-auth', { idToken });
+            
             if (res.data.token) {
                 await AsyncStorage.setItem('userToken', res.data.token);
-                await AsyncStorage.setItem('userEmail', email);
+                await AsyncStorage.setItem('userPhone', phoneNumber);
                 router.replace('/(main)');
+            } else if (res.data.needsRegistration) {
+                // This shouldn't happen on login if they have an account,
+                // but we can redirect to signup if needed.
+                router.push({
+                    pathname: '/signup',
+                    params: { phoneNumber, idToken }
+                });
             }
         } catch (error: any) {
-            const msg = error.response?.data?.error || 'Login failed';
-            Alert.alert('Login Failed', msg);
+            Alert.alert('Verification Failed', 'Invalid OTP or network error. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -44,11 +87,15 @@ export default function LoginScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            <FirebaseRecaptchaVerifierModal
+                ref={recaptchaVerifier}
+                firebaseConfig={auth.app.options}
+            />
+
             <View style={styles.card}>
                 {/* ── Logo */}
                 <View style={styles.headerContainer}>
                     <View style={styles.logoRow}>
-                        {/* "i" with teal dot */}
                         <View style={styles.iWrapper}>
                             <Text style={styles.logoI}>i</Text>
                             <LinearGradient
@@ -58,57 +105,60 @@ export default function LoginScreen() {
                         </View>
                         <Text style={styles.logoRest}>TURSH</Text>
                     </View>
-                    <Text style={styles.subtitle}>Welcome back</Text>
+                    <Text style={styles.subtitle}>
+                        {step === 1 ? 'Login with Phone' : 'Verify OTP'}
+                    </Text>
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="you@example.com"
-                        placeholderTextColor="#80CECC"
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        value={email}
-                        onChangeText={setEmail}
-                    />
-                </View>
-
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Password</Text>
-                    <View style={styles.passwordContainer}>
+                {step === 1 ? (
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Phone Number</Text>
                         <TextInput
-                            style={[styles.input, styles.passwordInput]}
-                            placeholder="••••••••"
+                            style={styles.input}
+                            placeholder="+91 98765 43210"
                             placeholderTextColor="#80CECC"
-                            secureTextEntry={!showPassword}
-                            value={password}
-                            onChangeText={setPassword}
+                            keyboardType="phone-pad"
+                            autoComplete="tel"
+                            value={phoneNumber}
+                            onChangeText={setPhoneNumber}
                         />
-                        <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
-                            <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#1DADA8" />
+                        <TouchableOpacity
+                            style={[styles.btn, loading && styles.btnDisabled]}
+                            onPress={handleSendOTP}
+                            disabled={loading}
+                            activeOpacity={0.8}
+                        >
+                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Send OTP</Text>}
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity style={styles.forgotBtn} onPress={() => Alert.alert('Forgot Password', 'Password recovery coming soon.')}>
-                        <Text style={styles.forgotText}>Forgot Password?</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                    style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
-                    onPress={handleLogin}
-                    disabled={loading}
-                    activeOpacity={0.8}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#FFF" />
-                    ) : (
-                        <Text style={styles.loginBtnText}>Login</Text>
-                    )}
-                </TouchableOpacity>
+                ) : (
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Verification Code</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="6-digit code"
+                            placeholderTextColor="#80CECC"
+                            keyboardType="number-pad"
+                            maxLength={6}
+                            value={verificationCode}
+                            onChangeText={setVerificationCode}
+                        />
+                        <TouchableOpacity
+                            style={[styles.btn, loading && styles.btnDisabled]}
+                            onPress={handleVerifyOTP}
+                            disabled={loading}
+                            activeOpacity={0.8}
+                        >
+                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Verify & Login</Text>}
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setStep(1)} style={styles.changePhoneBtn}>
+                            <Text style={styles.changePhoneText}>Change Phone Number</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+                    <Text style={styles.footerText}>Don't have an account? </Text>
                     <TouchableOpacity onPress={() => router.push('/signup')}>
                         <Text style={styles.linkText}>Sign Up</Text>
                     </TouchableOpacity>
@@ -195,32 +245,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#333',
     },
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: TEAL_LIGHT,
-        borderWidth: 1,
-        borderColor: '#B2E8E6',
-        borderRadius: 16,
-    },
-    passwordInput: {
-        flex: 1,
-        borderWidth: 0,
-        backgroundColor: 'transparent',
-    },
-    eyeIcon: {
-        padding: 14,
-    },
-    forgotBtn: {
-        alignSelf: 'flex-end',
-        marginTop: 8,
-    },
-    forgotText: {
-        color: TEAL,
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    loginBtn: {
+    btn: {
         backgroundColor: TEAL,
         borderRadius: 16,
         paddingVertical: 16,
@@ -232,10 +257,10 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 4,
     },
-    loginBtnDisabled: {
+    btnDisabled: {
         opacity: 0.7,
     },
-    loginBtnText: {
+    btnText: {
         color: '#FFF',
         fontSize: 16,
         fontWeight: '700',
@@ -254,5 +279,14 @@ const styles = StyleSheet.create({
         color: TEAL,
         fontSize: 14,
         fontWeight: '700',
+    },
+    changePhoneBtn: {
+        marginTop: 16,
+        alignItems: 'center',
+    },
+    changePhoneText: {
+        color: TEAL,
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

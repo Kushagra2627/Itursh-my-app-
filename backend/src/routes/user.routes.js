@@ -14,8 +14,10 @@ const {
     getNotifications,
     markNotificationAsRead,
     markNotificationAsRead,
+    markNotificationAsRead,
     savePushToken,
-    getSoldProperties
+    getSoldProperties,
+    firebaseAuth
 } = require('../controllers/user.controller');
 
 // ─── User Auth Middleware ────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ const verifyUserToken = (req, res, next) => {
 // ─── Public Routes ──────────────
 router.post('/login', login);
 router.post('/register', signup);
+router.post('/firebase-auth', firebaseAuth);
 router.get('/properties', getProperties);
 router.get('/properties/:id', getPropertyById);
 

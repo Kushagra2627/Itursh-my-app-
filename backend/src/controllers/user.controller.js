@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
+const admin = require('../lib/firebase-admin');
 
 // ─── POST /api/user/signup ───────────────────────────────────────────────────
 const signup = async (req, res) => {
@@ -324,6 +325,56 @@ const savePushToken = async (req, res) => {
     }
 };
 
+// ─── POST /api/user/firebase-auth ─────────────────────────────────────────────
+const firebaseAuth = async (req, res) => {
+    try {
+        const { idToken, name } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ error: 'ID Token is required' });
+        }
+
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const { phone_number, uid } = decodedToken;
+
+        if (!phone_number) {
+            return res.status(400).json({ error: 'Phone number not verified in token' });
+        }
+
+        // Check if user exists by phone
+        let user = await prisma.user.findUnique({
+            where: { phone: phone_number }
+        });
+
+        if (!user) {
+            // New User Registration
+            if (!name) {
+                return res.status(400).json({ error: 'Name is required for new registration', needsRegistration: true });
+            }
+            user = await prisma.user.create({
+                data: {
+                    phone: phone_number,
+                    name: name,
+                }
+            });
+        }
+
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: 'user' },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        return res.status(200).json({ 
+            token, 
+            user: { id: user.id, name: user.name, phone: user.phone }, 
+            message: 'Authentication successful' 
+        });
+    } catch (error) {
+        console.error('Firebase Auth error:', error);
+        return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+};
+
 // ─── GET /api/user/sold-properties ───────────────────────────────────────────
 const getSoldProperties = async (req, res) => {
     try {
@@ -364,4 +415,5 @@ module.exports = {
     markNotificationAsRead,
     savePushToken,
     getSoldProperties,
+    firebaseAuth,
 };
