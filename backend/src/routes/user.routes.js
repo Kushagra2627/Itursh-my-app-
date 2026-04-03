@@ -13,8 +13,6 @@ const {
     updateProfile,
     getNotifications,
     markNotificationAsRead,
-    markNotificationAsRead,
-    markNotificationAsRead,
     savePushToken,
     getSoldProperties,
     firebaseAuth
