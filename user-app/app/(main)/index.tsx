@@ -33,6 +33,15 @@ type Property = {
     isBooked?: boolean;
 };
 
+type SoldProperty = {
+    id: string;
+    title: string;
+    location: string;
+    price: number;
+    images: string[];
+    soldAt: string;
+};
+
 const PROPERTY_GRADIENTS = [
     ['#1DADA8', '#0F6E6A'] as const,
     ['#2E6EDB', '#1A4BA8'] as const,
@@ -120,6 +129,14 @@ export default function HomeScreen() {
             return res.data.properties as Property[] || [];
         },
         staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: soldProperties = [], isLoading: loadingSold } = useQuery({
+        queryKey: ['sold-properties'],
+        queryFn: async () => {
+            const res = await apiClient.get('/api/user/sold-properties');
+            return res.data.soldProperties as SoldProperty[] || [];
+        },
     });
 
     const featuredProperties = properties.slice(0, 5);
@@ -245,6 +262,48 @@ export default function HomeScreen() {
         );
     };
 
+    const renderSoldCard = ({ item }: { item: SoldProperty }) => {
+        const hasImage = item.images && item.images.length > 0;
+        const soldDate = new Date(item.soldAt).toLocaleDateString('en-GB', { 
+            day: '2-digit', month: 'short', year: 'numeric' 
+        }).toUpperCase();
+
+        return (
+            <View style={styles.featuredCard}>
+                <View style={styles.featuredImageContainer}>
+                    {hasImage ? (
+                        <Image
+                            source={{ uri: getImageUri(item.images[0]) }}
+                            style={styles.featuredImage}
+                        />
+                    ) : (
+                        <LinearGradient colors={['#9CA3AF', '#4B5563']} style={styles.featuredImage}>
+                            <Ionicons name="home" size={40} color="rgba(255,255,255,0.5)" />
+                        </LinearGradient>
+                    )}
+                    {/* SOLD Badge */}
+                    <View style={[styles.availBadge, { backgroundColor: Colors.primary }]}>
+                        <Text style={styles.availBadgeText}>SOLD</Text>
+                    </View>
+                </View>
+                <View style={styles.featuredContent}>
+                    <Text style={styles.featuredTitle} numberOfLines={1}>{item.title}</Text>
+                    <View style={styles.featuredRow}>
+                        <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+                        <Text style={styles.featuredLocation} numberOfLines={1}>{item.location}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.featuredPrice}>
+                            ₹{item.price.toLocaleString()}
+                            <Text style={styles.featuredPriceSuffix}>/mo</Text>
+                        </Text>
+                        <Text style={styles.soldDateText}>{soldDate}</Text>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
     return (
         <View style={[styles.container, { paddingBottom: 0 }]}>
             {/* ─── STATUS BAR ZONE ─── */}
@@ -365,6 +424,31 @@ export default function HomeScreen() {
                                     {renderNearbyCard({ item, index })}
                                 </View>
                             ))
+                        )}
+                    </>
+                )}
+
+                {/* Sold Properties */}
+                {(loadingSold || soldProperties.length > 0) && (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Sold Properties</Text>
+                        </View>
+                        {loadingSold ? (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredList}>
+                                {[1, 2].map(i => <SkeletonCard key={i} />)}
+                            </ScrollView>
+                        ) : (
+                            <FlatList
+                                data={soldProperties}
+                                renderItem={renderSoldCard}
+                                keyExtractor={item => item.id}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.featuredList}
+                                ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                                scrollEventThrottle={16}
+                            />
                         )}
                     </>
                 )}
@@ -626,6 +710,11 @@ const styles = StyleSheet.create({
     featuredPriceSuffix: {
         fontSize: 12,
         fontWeight: '500',
+        color: Colors.textMuted,
+    },
+    soldDateText: {
+        fontSize: 11,
+        fontWeight: '700',
         color: Colors.textMuted,
     },
     // ─── NEARBY CARD ───

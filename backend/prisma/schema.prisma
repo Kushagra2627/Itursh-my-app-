@@ -36,6 +36,7 @@ model Booking {
   notes        String?
   status       BookingStatus @default(PENDING)
   createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @default(now()) @updatedAt
 
   userId       String?
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)

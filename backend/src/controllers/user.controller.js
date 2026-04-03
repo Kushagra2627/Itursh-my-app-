@@ -324,6 +324,33 @@ const savePushToken = async (req, res) => {
     }
 };
 
+// ─── GET /api/user/sold-properties ───────────────────────────────────────────
+const getSoldProperties = async (req, res) => {
+    try {
+        const bookings = await prisma.booking.findMany({
+            where: { status: 'BOOKED' },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                property: true,
+            },
+        });
+
+        const soldProperties = bookings.map((b) => ({
+            id: b.property.id,
+            title: b.property.title,
+            location: b.property.location,
+            price: b.property.price,
+            images: b.property.images,
+            soldAt: b.updatedAt,
+        }));
+
+        return res.status(200).json({ soldProperties });
+    } catch (error) {
+        console.error('Get sold properties error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 module.exports = {
     signup,
     login,
@@ -336,4 +363,5 @@ module.exports = {
     getNotifications,
     markNotificationAsRead,
     savePushToken,
+    getSoldProperties,
 };

@@ -13,7 +13,9 @@ const {
     updateProfile,
     getNotifications,
     markNotificationAsRead,
-    savePushToken
+    markNotificationAsRead,
+    savePushToken,
+    getSoldProperties
 } = require('../controllers/user.controller');
 
 // ─── User Auth Middleware ────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ router.post('/bookings', verifyUserToken, createBooking);
 router.get('/profile', verifyUserToken, getProfile);
 router.patch('/profile', verifyUserToken, updateProfile);
 router.post('/push-token', verifyUserToken, savePushToken);
+router.get('/sold-properties', verifyUserToken, getSoldProperties);
 
 // ─── Notifications ──────────────
 router.get('/notifications', verifyUserToken, getNotifications);
