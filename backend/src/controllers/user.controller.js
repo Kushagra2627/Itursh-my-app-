@@ -134,6 +134,7 @@ const createBooking = async (req, res) => {
     try {
         const { propertyId, peopleCount, notes } = req.body;
         const userId = req.user.id;
+        console.log('🔍 Attempting booking for userId:', userId);
 
         if (!propertyId || !peopleCount) {
             return res.status(400).json({ error: 'Property ID and People Count are required' });
@@ -144,6 +145,7 @@ const createBooking = async (req, res) => {
             where: { id: userId },
             select: { name: true, email: true, phone: true }
         });
+        console.log('👤 User found in DB:', user ? 'Yes' : 'No');
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
