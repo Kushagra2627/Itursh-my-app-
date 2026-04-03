@@ -10,8 +10,8 @@ const signup = async (req, res) => {
     try {
         const { name, email, password, phone } = req.body;
 
-        if (!name || !email || !password) {
-            return res.status(400).json({ error: 'Name, email, and password are required' });
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required' });
         }
 
         const existingUser = await prisma.user.findUnique({ where: { email } });

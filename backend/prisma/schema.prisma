@@ -30,7 +30,7 @@ model Booking {
   id           String        @id @default(uuid())
   propertyId   String
   tenantName   String
-  tenantEmail  String
+  tenantEmail  String?
   phone        String?
   peopleCount  Int?
   notes        String?
