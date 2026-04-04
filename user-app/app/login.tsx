@@ -1,13 +1,13 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import React, { useState } from 'react';
+import {
+    View, Text, TextInput, TouchableOpacity, StyleSheet,
+    KeyboardAvoidingView, Platform, ActivityIndicator, Alert
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import auth from '@react-native-firebase/auth';
 import apiClient from '../src/lib/axios';
-import { auth } from '../src/lib/firebaseConfig';
-import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 
 const TEAL = '#1DADA8';
 const TEAL_DARK = '#0F6E6A';
@@ -15,27 +15,22 @@ const TEAL_LIGHT = '#E1F7F6';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const recaptchaVerifier = useRef(null);
     const [phoneNumber, setPhoneNumber] = useState('+91');
-    const [verificationId, setVerificationId] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
+    const [confirmation, setConfirmation] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [step, setStep] = useState(1); // 1: Phone, 2: OTP
+    const [step, setStep] = useState(1);
 
     const handleSendOTP = async () => {
-        if (!phoneNumber || phoneNumber.length < 10) {
-            Alert.alert('Error', 'Please enter a valid phone number with country code (e.g. +91...)');
+        const cleanPhone = phoneNumber.replace(/\s+/g, '');
+        if (cleanPhone.length < 13) {
+            Alert.alert('Error', 'Please enter a valid 10-digit phone number with country code (e.g. +91...)');
             return;
         }
-
         setLoading(true);
         try {
-            const phoneProvider = new PhoneAuthProvider(auth);
-            const verId = await phoneProvider.verifyPhoneNumber(
-                phoneNumber,
-                recaptchaVerifier.current!
-            );
-            setVerificationId(verId);
+            const conf = await auth().signInWithPhoneNumber(cleanPhone);
+            setConfirmation(conf);
             setStep(2);
             Alert.alert('OTP Sent', 'An OTP has been sent to your phone number.');
         } catch (error: any) {
@@ -50,26 +45,18 @@ export default function LoginScreen() {
             Alert.alert('Error', 'Please enter the 6-digit OTP code');
             return;
         }
-
         setLoading(true);
         try {
-            const credential = PhoneAuthProvider.credential(
-                verificationId,
-                verificationCode
-            );
-            const userCredential = await signInWithCredential(auth, credential);
+            const userCredential = await confirmation.confirm(verificationCode);
             const idToken = await userCredential.user.getIdToken();
 
-            // Send token to backend
             const res = await apiClient.post('/api/user/firebase-auth', { idToken });
-            
+
             if (res.data.token) {
                 await AsyncStorage.setItem('userToken', res.data.token);
                 await AsyncStorage.setItem('userPhone', phoneNumber);
                 router.replace('/(main)');
             } else if (res.data.needsRegistration) {
-                // This shouldn't happen on login if they have an account,
-                // but we can redirect to signup if needed.
                 router.push({
                     pathname: '/signup',
                     params: { phoneNumber, idToken }
@@ -94,15 +81,8 @@ export default function LoginScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <FirebaseRecaptchaVerifierModal
-                ref={recaptchaVerifier}
-                firebaseConfig={auth.app.options}
-                attemptInvisibleVerification={true}
-                appVerificationDisabledForTesting={true}
-            />
-
             <View style={styles.card}>
-                {/* ── Logo */}
+                {/* Logo */}
                 <View style={styles.headerContainer}>
                     <View style={styles.logoRow}>
                         <View style={styles.iWrapper}>
@@ -137,7 +117,10 @@ export default function LoginScreen() {
                             disabled={loading}
                             activeOpacity={0.8}
                         >
-                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Send OTP</Text>}
+                            {loading
+                                ? <ActivityIndicator color="#FFF" />
+                                : <Text style={styles.btnText}>Send OTP</Text>
+                            }
                         </TouchableOpacity>
                     </View>
                 ) : (
@@ -158,7 +141,10 @@ export default function LoginScreen() {
                             disabled={loading}
                             activeOpacity={0.8}
                         >
-                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Verify & Login</Text>}
+                            {loading
+                                ? <ActivityIndicator color="#FFF" />
+                                : <Text style={styles.btnText}>Verify & Login</Text>
+                            }
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setStep(1)} style={styles.changePhoneBtn}>
                             <Text style={styles.changePhoneText}>Change Phone Number</Text>
@@ -266,9 +252,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 4,
     },
-    btnDisabled: {
-        opacity: 0.7,
-    },
+    btnDisabled: { opacity: 0.7 },
     btnText: {
         color: '#FFF',
         fontSize: 16,
@@ -280,22 +264,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginTop: 24,
     },
-    footerText: {
-        color: '#666',
-        fontSize: 14,
-    },
-    linkText: {
-        color: TEAL,
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    changePhoneBtn: {
-        marginTop: 16,
-        alignItems: 'center',
-    },
-    changePhoneText: {
-        color: TEAL,
-        fontSize: 14,
-        fontWeight: '600',
-    },
+    footerText: { color: '#666', fontSize: 14 },
+    linkText: { color: TEAL, fontSize: 14, fontWeight: '700' },
+    changePhoneBtn: { marginTop: 16, alignItems: 'center' },
+    changePhoneText: { color: TEAL, fontSize: 14, fontWeight: '600' },
 });

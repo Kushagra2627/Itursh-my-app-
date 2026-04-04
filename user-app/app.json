@@ -18,7 +18,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.kushagra2627.userapp",
+      "package": "com.iTURSH.user_app1",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -42,7 +42,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
